@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }} | Promo Query Paraguay</title>
+    <link rel="stylesheet" href="/web/static/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/">Promo Query Paraguay</a>
+        <nav class="main-nav">
+          <a href="/" class="{% if active_nav == 'home' %}active{% endif %}">Buscar</a>
+          <a href="/promotions-ui" class="{% if active_nav == 'promotions' %}active{% endif %}">Promociones</a>
+          <a href="/fuel" class="{% if active_nav == 'fuel' %}active{% endif %}">Combustibles</a>
+          <a href="/audit-ui" class="{% if active_nav == 'audit' %}active{% endif %}">Estado</a>
+          <a href="/ops" class="{% if active_nav == 'ops' %}active{% endif %}">Operación</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-shell">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

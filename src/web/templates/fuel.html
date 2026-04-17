@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Combustibles</span>
+      <h1>Precios base y recomendación rápida para 95 y 97</h1>
+    </div>
+    <form action="/fuel" method="get" class="filters-form">
+      <label>
+        Mes
+        <input type="text" name="month" placeholder="2026-04" value="{{ month or '' }}" />
+      </label>
+      <label>
+        Marca
+        <select name="brand">
+          <option value="">Todas las marcas</option>
+          {% for item in brands %}
+            <option value="{{ item }}" {% if brand == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="octane-switch">
+        <a href="/fuel?month={{ month or '' }}&brand={{ brand }}"{% if not octane %} class="active"{% endif %}>Todo</a>
+        <a href="/fuel?month={{ month or '' }}&brand={{ brand }}&octane=95"{% if octane == '95' %} class="active"{% endif %}>95</a>
+        <a href="/fuel?month={{ month or '' }}&brand={{ brand }}&octane=97"{% if octane == '97' %} class="active"{% endif %}>97</a>
+      </div>
+      <button type="submit">Aplicar</button>
+    </form>
+    {% if error_message %}
+      <p class="error-banner">{{ error_message }}</p>
+    {% endif %}
+  </section>
+
+  <section class="grid-two">
+    {% for current_octane, recommendation in recommendations.items() %}
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Recomendación {{ current_octane }}</h2>
+        </div>
+        {% if recommendation %}
+          <p class="benefit">{{ recommendation.merchant }} · {{ recommendation.bank }}</p>
+          <dl class="result-meta compact-meta">
+            <div>
+              <dt>Beneficio</dt>
+              <dd>{{ recommendation.benefit }}</dd>
+            </div>
+            <div>
+              <dt>Precio base</dt>
+              <dd>{% if recommendation.price_base is not none %}Gs. {{ recommendation.price_base }}{% else %}-{% endif %}</dd>
+            </div>
+            <div>
+              <dt>Final estimado</dt>
+              <dd>{% if recommendation.price_final_estimated is not none %}Gs. {{ recommendation.price_final_estimated }}{% else %}Sin promo estimable{% endif %}</dd>
+            </div>
+          </dl>
+        {% else %}
+          <p>Sin recomendación disponible para ese octanaje.</p>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <h2>Precios agrupados por marca</h2>
+    </div>
+    {% if grouped_items %}
+      <div class="brand-groups">
+        {% for brand_name, brand_items in grouped_items.items() %}
+          <article class="brand-card">
+            <h3>{{ brand_name }}</h3>
+            <ul class="kv-list">
+              {% for item in brand_items %}
+                <li>
+                  <span>{{ item.octane }}</span>
+                  <strong>Gs. {{ item.base_price }}</strong>
+                </li>
+              {% endfor %}
+            </ul>
+          </article>
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Marca</th>
+              <th>Octanaje</th>
+              <th>Precio base</th>
+              <th>Capturado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr>
+                <td>{{ item.brand }}</td>
+                <td>{{ item.octane }}</td>
+                <td>Gs. {{ item.base_price }}</td>
+                <td>{{ item.captured_at }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No hay precios cargados para ese filtro. Si el problema persiste, corré collect desde Operación.</p>
+    {% endif %}
+  </section>
+{% endblock %}

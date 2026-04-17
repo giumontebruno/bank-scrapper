@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Resultados</span>
+      <h1>Buscá promos por necesidad real</h1>
+      {% if recent_queries %}
+        <div class="chip-grid top-chip-grid">
+          {% for item in recent_queries %}
+            <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <form action="/search" method="get" class="search-form">
+      <input name="q" type="text" value="{{ query }}" placeholder="Ej: quiero comprar en super o que tarjeta me conviene para 95" />
+      <button type="submit">Buscar</button>
+    </form>
+  </section>
+
+  <section class="panel filters-panel">
+    <div class="section-heading">
+      <h2>Filtros</h2>
+      <p>{{ visible_matches }} visibles de {{ total_matches }} resultados.</p>
+    </div>
+    <form action="/search" method="get" class="filters-form">
+      <input type="hidden" name="q" value="{{ query }}" />
+      <label>
+        Banco
+        <select name="bank">
+          <option value="">Todos</option>
+          {% for item in banks %}
+            <option value="{{ item }}" {% if filters.bank == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Categoría
+        <select name="category">
+          <option value="">Todas</option>
+          {% for item in categories %}
+            <option value="{{ item }}" {% if filters.category == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Calidad
+        <select name="quality">
+          <option value="">Todas</option>
+          {% for item in quality_labels %}
+            <option value="{{ item }}" {% if filters.quality == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Tipo
+        <select name="promo_type">
+          <option value="">Todos</option>
+          {% for item in promo_types %}
+            <option value="{{ item }}" {% if filters.promo_type == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Aplicar</button>
+    </form>
+  </section>
+
+  {% if matches %}
+    <section class="results-grid">
+      {% for item in matches %}
+        <article class="result-card">
+          <div class="result-header">
+            <div>
+              <span class="label">{{ item.bank or "Sin banco" }}</span>
+              <h2>{{ item.merchant }}</h2>
+            </div>
+            <span class="badge badge-{{ item.result_quality_label or 'fallback' }}">{{ item.result_quality_label or "fallback" }}</span>
+          </div>
+          <div class="tag-row">
+            <span class="tag">{{ item.category or "sin categoría" }}</span>
+            <span class="tag">{{ result_kind(item) }}</span>
+            <span class="tag">{{ item.promo_type or "catalog_fallback" }}</span>
+          </div>
+          <p class="benefit">{{ item.benefit }}</p>
+          <dl class="result-meta">
+            <div>
+              <dt>Banco</dt>
+              <dd>{{ item.bank or "No informado" }}</dd>
+            </div>
+            <div>
+              <dt>Vigencia</dt>
+              <dd>{{ item.valid_until or "No informada" }}</dd>
+            </div>
+            <div>
+              <dt>Calidad</dt>
+              <dd>{{ item.result_quality_label or "fallback" }}</dd>
+            </div>
+            <div>
+              <dt>Precio base</dt>
+              <dd>{% if item.price_base is not none %}Gs. {{ item.price_base }}{% else %}-{% endif %}</dd>
+            </div>
+            <div>
+              <dt>Final estimado</dt>
+              <dd>{% if item.price_final_estimated is not none %}Gs. {{ item.price_final_estimated }}{% else %}-{% endif %}</dd>
+            </div>
+            <div>
+              <dt>Merchant</dt>
+              <dd>{{ item.merchant }}</dd>
+            </div>
+          </dl>
+          <p class="explanation">{{ item.explanation }}</p>
+          {% if item.source_url %}
+            <a class="source-link" href="{{ item.source_url }}" target="_blank" rel="noreferrer">Ver fuente</a>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% elif empty_state %}
+    <section class="empty-state panel">
+      <h2>{{ empty_state.title }}</h2>
+      <p>{{ empty_state.message }}</p>
+      <div class="chip-grid">
+        {% for item in example_queries %}
+          <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <section class="empty-state panel">
+      <h2>Escribí una consulta para empezar</h2>
+      <p>La búsqueda funciona mejor con frases concretas como “quiero comprar en super” o “que tarjeta me conviene para 95”.</p>
+    </section>
+  {% endif %}
+{% endblock %}

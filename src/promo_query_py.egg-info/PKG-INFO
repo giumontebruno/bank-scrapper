@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: promo-query-py
+Version: 0.1.0
+Summary: Motor consultable de promociones bancarias y precios de combustibles para Paraguay.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: beautifulsoup4>=4.12
+Requires-Dist: lxml>=5.2
+Requires-Dist: pdfplumber>=0.11
+Requires-Dist: pydantic<2,>=1.10
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: requests>=2.32
+Requires-Dist: typer>=0.12
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2; extra == "dev"
+
+# promo-query-py
+
+Motor consultable de promociones bancarias y precios de combustibles para Paraguay.
+
+## Alcance actual
+
+- Consulta por intención de compra sin LLM.
+- Catálogo de productos, rubros y comercios con aliases.
+- Integración de precios base de combustible 93 y 97.
+- Ranking de conveniencia con explicación.
+- Exportación JSON y CSV.
+
+## Instalar
+
+```bash
+pip install -e .[dev]
+```
+
+## Uso
+
+```bash
+python -m app collect --month 2026-04
+python -m app query --text "hoy necesito comprar clavos"
+python -m app query --text "me conviene cargar 97 hoy"
+python -m app export --format json
+python -m app export --format csv
+```
+
+## Fuente de combustibles
+
+El módulo `fuel_prices` toma HTML de `combustibles.com.py`, detecta solo `nafta 93` y `nafta 97`, normaliza marcas y guarda evidencia cruda. Si la estructura del sitio cambia, el parser devuelve una lista vacía antes de inventar datos.

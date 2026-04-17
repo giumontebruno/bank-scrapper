@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Promociones</span>
+      <h1>Listado consultable de promociones persistidas</h1>
+    </div>
+    <form action="/promotions-ui" method="get" class="filters-form">
+      <label>
+        Mes
+        <input type="text" name="month" placeholder="2026-04" value="{{ month or '' }}" />
+      </label>
+      <label>
+        Banco
+        <select name="bank">
+          <option value="">Todos los bancos</option>
+          {% for item in banks %}
+            <option value="{{ item }}" {% if bank == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Categoría
+        <select name="category">
+          <option value="">Todas las categorías</option>
+          {% for item in categories %}
+            <option value="{{ item }}" {% if category == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Tipo
+        <select name="promo_type">
+          <option value="">Todos</option>
+          {% for item in promo_types %}
+            <option value="{{ item }}" {% if promo_type == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Calidad
+        <select name="quality">
+          <option value="">Todas</option>
+          {% for item in quality_labels %}
+            <option value="{{ item }}" {% if quality == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Filtrar</button>
+    </form>
+    {% if error_message %}
+      <p class="error-banner">{{ error_message }}</p>
+    {% endif %}
+  </section>
+
+  {% if items %}
+    <section class="panel panel-summary">
+      <p>Mostrando {{ items | length }} resultados en esta página, {{ total_items }} en total.</p>
+    </section>
+    <section class="results-grid">
+      {% for item in items %}
+        <article class="result-card">
+          <div class="result-header">
+            <div>
+              <span class="label">{{ item.bank }}</span>
+              <h2>{{ item.merchant }}</h2>
+            </div>
+            <span class="badge badge-{{ item.quality_label }}">{{ item.quality_label }}</span>
+          </div>
+          <div class="tag-row">
+            <span class="tag">{{ item.category }}</span>
+            <span class="tag">{{ item.promo_type }}</span>
+            <span class="tag">{{ item.merchant_state }}</span>
+          </div>
+          <p class="benefit">{{ item.benefit }}</p>
+          <p class="explanation">{{ item.summary }}</p>
+          <dl class="result-meta">
+            <div>
+              <dt>Vigencia</dt>
+              <dd>{{ item.valid_until or "No informada" }}</dd>
+            </div>
+            <div>
+              <dt>Canal</dt>
+              <dd>{{ item.channel or "No informado" }}</dd>
+            </div>
+            <div>
+              <dt>Pago</dt>
+              <dd>{{ item.payment_method or "No informado" }}</dd>
+            </div>
+          </dl>
+          <a class="source-link" href="{{ item.source_url }}" target="_blank" rel="noreferrer">Ver fuente</a>
+        </article>
+      {% endfor %}
+    </section>
+    <section class="pagination">
+      {% if page > 1 %}
+        <a href="/promotions-ui?month={{ month or '' }}&bank={{ bank }}&category={{ category }}&promo_type={{ promo_type }}&quality={{ quality }}&page={{ page - 1 }}">Anterior</a>
+      {% endif %}
+      <span>Página {{ page }} de {{ total_pages }}</span>
+      {% if page < total_pages %}
+        <a href="/promotions-ui?month={{ month or '' }}&bank={{ bank }}&category={{ category }}&promo_type={{ promo_type }}&quality={{ quality }}&page={{ page + 1 }}">Siguiente</a>
+      {% endif %}
+    </section>
+  {% else %}
+    <section class="empty-state panel">
+      <h2>No hay promociones para ese filtro</h2>
+      <p>Probá otro banco, otra categoría o quitá filtros de tipo y calidad.</p>
+    </section>
+  {% endif %}
+{% endblock %}

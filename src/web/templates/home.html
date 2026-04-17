@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Consulta real de promos bancarias</span>
+      <h1>Buscá por necesidad real y encontrá qué banco te conviene hoy.</h1>
+      <p>
+        Probá supermercado, combustible 95/97, ropa, farmacia, gastronomía, hogar o ferretería desde una sola búsqueda.
+      </p>
+      <form action="/search" method="get" class="search-form search-form-large">
+        <label class="sr-only" for="q">Buscar promociones</label>
+        <input id="q" name="q" type="text" placeholder="Ej: quiero comprar en super, que tarjeta me conviene para 95, necesito clavos" />
+        <button type="submit">Buscar</button>
+      </form>
+      <div class="quick-actions">
+        <a class="cta-link" href="/fuel">Ver combustibles</a>
+        <a class="cta-link" href="/promotions-ui?month={{ default_month }}">Explorar promociones</a>
+        <a class="cta-link" href="/audit-ui?month={{ default_month }}">Revisar estado</a>
+      </div>
+    </div>
+    <aside class="hero-panel">
+      <div class="stat-card">
+        <strong>Uso diario rápido</strong>
+        <p>Entrá, escribí la necesidad y compará merchant, banco, beneficio, vigencia y precio final estimado cuando aplique.</p>
+      </div>
+      <div class="stat-card">
+        <strong>Operación desde web</strong>
+        <p>Ya podés correr collect y audit desde navegador sin entrar por consola.</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <h2>Búsquedas rápidas</h2>
+      <p>Un clic para empezar.</p>
+    </div>
+    <div class="chip-grid">
+      {% for item in example_queries %}
+        <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if recent_queries %}
+    <section class="panel">
+      <div class="section-heading">
+        <h2>Últimas búsquedas</h2>
+        <p>Retomá rápido lo que consultaste hace poco en este navegador.</p>
+      </div>
+      <div class="chip-grid">
+        {% for item in recent_queries %}
+          <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="grid-two">
+    <article class="panel">
+      <div class="section-heading">
+        <h2>Qué podés resolver</h2>
+      </div>
+      <ul class="feature-list">
+        <li>Mejor tarjeta para 95 o 97</li>
+        <li>Promos por banco, merchant, categoría y calidad</li>
+        <li>Exploración de promociones persistidas</li>
+        <li>Salud del dataset y recolección desde web</li>
+      </ul>
+    </article>
+    <article class="panel">
+      <div class="section-heading">
+        <h2>Flujo recomendado</h2>
+      </div>
+      <ul class="feature-list">
+        <li>Buscar primero por necesidad real</li>
+        <li>Filtrar si hay muchos resultados</li>
+        <li>Usar Estado para revisar warnings</li>
+        <li>Usar Operación para collect y audit</li>
+      </ul>
+    </article>
+  </section>
+{% endblock %}

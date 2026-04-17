@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Estado</span>
+      <h1>Salud del dataset y readiness de la API</h1>
+    </div>
+    <a class="cta-link" href="/ops">Ir a operación</a>
+  </section>
+
+  <section class="panel">
+    <form action="/audit-ui" method="post" class="filters-form">
+      <label>
+        Mes
+        <input type="text" name="month" placeholder="2026-04" value="{{ month }}" />
+      </label>
+      <label>
+        Banco
+        <select name="bank">
+          <option value="">Todos</option>
+          {% for item in banks %}
+            <option value="{{ item }}" {% if bank == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Query smoke opcional
+        <input type="text" name="query" value="{{ query_text }}" placeholder="Ej: que tarjeta me conviene para 95" />
+      </label>
+      <button type="submit">Correr audit</button>
+    </form>
+    {% if error_message %}
+      <p class="error-banner">{{ error_message }}</p>
+    {% endif %}
+  </section>
+
+  {% if report %}
+    <section class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">API readiness</span>
+        <strong class="metric-value">{{ report.api_readiness }}</strong>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Promociones</span>
+        <strong class="metric-value">{{ report.dataset.total_promotions }}</strong>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Fuel prices</span>
+        <strong class="metric-value">{{ report.dataset.fuel.total_prices }}</strong>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Calidad promedio</span>
+        <strong class="metric-value">{{ report.dataset.average_quality_score }}</strong>
+      </article>
+    </section>
+
+    <section class="grid-two">
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Warnings</h2>
+        </div>
+        {% if report.issues %}
+          <ul class="issue-list">
+            {% for issue in report.issues %}
+              <li><strong>[{{ issue.level }}]</strong> {{ issue.code }}: {{ issue.message }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>Sin warnings activos.</p>
+        {% endif %}
+      </article>
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Categorías débiles</h2>
+        </div>
+        {% if report.dataset.weak_categories %}
+          <div class="tag-row">
+            {% for item in report.dataset.weak_categories %}
+              <span class="tag">{{ item }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>Sin categorías débiles.</p>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="grid-two">
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Promociones por banco</h2>
+        </div>
+        <ul class="kv-list">
+          {% for bank_name, count in report.dataset.promotions_by_bank.items() %}
+            <li><span>{{ bank_name }}</span><strong>{{ count }}</strong></li>
+          {% endfor %}
+        </ul>
+      </article>
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Cobertura por categoría</h2>
+        </div>
+        <ul class="kv-list">
+          {% for category_name, count in report.dataset.promotions_by_category.items() %}
+            <li><span>{{ category_name }}</span><strong>{{ count }}</strong></li>
+          {% endfor %}
+        </ul>
+      </article>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Operación</span>
+      <h1>Collect y audit desde navegador</h1>
+      <p class="subtle">Usá esta vista para actualizar datos y revisar salud sin entrar por consola.</p>
+    </div>
+  </section>
+
+  {% if not admin_enabled %}
+    <section class="empty-state panel">
+      <h2>Operación web deshabilitada</h2>
+      <p>Activá <code>ENABLE_ADMIN_ENDPOINTS=true</code> para usar collect y audit desde navegador.</p>
+    </section>
+  {% else %}
+    {% if error_message %}
+      <p class="error-banner">{{ error_message }}</p>
+    {% endif %}
+
+    <section class="grid-two">
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Collect</h2>
+          <p>Actualizá combustible y promociones del mes elegido.</p>
+        </div>
+        <form action="/ops/collect" method="post" class="filters-form">
+          <label>
+            Mes
+            <input type="text" name="month" value="{{ default_month }}" placeholder="2026-04" />
+          </label>
+          <label>
+            Banco opcional
+            <select name="bank">
+              <option value="">Todos</option>
+              {% for item in banks %}
+                <option value="{{ item }}">{{ item }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit">Correr collect</button>
+        </form>
+        {% if collect_result %}
+          <div class="ops-result">
+            <p><strong>Completado en:</strong> {{ collect_result.elapsed_seconds }}s</p>
+            <p><strong>Fuel prices:</strong> {{ collect_result.fuel_prices or 0 }}</p>
+            <p><strong>Warnings:</strong> {{ collect_result.warnings or [] }}</p>
+            <pre>{{ collect_result }}</pre>
+          </div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Audit</h2>
+          <p>Corré un chequeo rápido del dataset actual.</p>
+        </div>
+        <form action="/ops/audit" method="post" class="filters-form">
+          <label>
+            Mes
+            <input type="text" name="month" value="{{ default_month }}" placeholder="2026-04" />
+          </label>
+          <label>
+            Banco opcional
+            <select name="bank">
+              <option value="">Todos</option>
+              {% for item in banks %}
+                <option value="{{ item }}">{{ item }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Query opcional
+            <input type="text" name="query" placeholder="Ej: que tarjeta me conviene para 95" />
+          </label>
+          <button type="submit">Correr audit</button>
+        </form>
+        {% if audit_result %}
+          <div class="ops-result">
+            <p><strong>Completado en:</strong> {{ audit_result.elapsed_seconds }}s</p>
+            <p><strong>Readiness:</strong> {{ audit_result.report.api_readiness }}</p>
+            <p><strong>Promociones:</strong> {{ audit_result.report.dataset.total_promotions }}</p>
+            <p><strong>Fuel prices:</strong> {{ audit_result.report.dataset.fuel.total_prices }}</p>
+            {% if audit_result.report.issues %}
+              <ul class="issue-list">
+                {% for issue in audit_result.report.issues %}
+                  <li><strong>[{{ issue.level }}]</strong> {{ issue.code }}: {{ issue.message }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p>Sin warnings activos.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      </article>
+    </section>
+  {% endif %}
+{% endblock %}

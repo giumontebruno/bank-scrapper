@@ -1,0 +1,172 @@
+ueno:
+  timeout: 20
+  allowed_domains:
+    - www.ueno.com.py
+    - ueno.com.py
+  exclude_url_hints:
+    - conoce-mas
+    - conocer-promos
+    - descubrir
+  exclude_link_text_hints:
+    - conocer promos
+    - conoce mas
+    - ver mas
+    - descubri
+    - beneficios
+  detail_hints:
+    - beneficios
+    - promo
+    - reintegro
+    - descuento
+  merchant_category_hints:
+    shell: combustible
+    copetrol: combustible
+    petropar: combustible
+    petrobras: combustible
+    enex: combustible
+    ferrex: ferreteria
+    stock: supermercados
+    biggie: supermercados
+  sources:
+    - url: https://www.ueno.com.py/beneficios-sitemap.xml
+      source_type: sitemap
+
+itau:
+  timeout: 20
+  allowed_domains:
+    - www.itau.com.py
+    - itau.com.py
+  detail_hints:
+    - promociones
+    - beneficios
+    - qr
+    - pdf
+  merchant_category_hints:
+    shell: combustible
+    copetrol: combustible
+    petropar: combustible
+    petrobras: combustible
+    enex: combustible
+    super express: supermercados
+    superseis: supermercados
+    stock: supermercados
+    ferrex: ferreteria
+  sources:
+    - url: https://www.itau.com.py/promociones
+      source_type: html_listing
+    - url: https://www.itau.com.py/Content/archivos/Dinamicos/Varios-8584638578407969421.pdf
+      source_type: pdf_campaign
+
+sudameris:
+  timeout: 20
+  allowed_domains:
+    - www.sudameris.com.py
+    - sudameris.com.py
+  exclude_url_hints:
+    - conoce-mas
+    - descubrir
+  exclude_link_text_hints:
+    - conoce mas
+    - ver mas
+    - descubri
+    - beneficios
+  detail_hints:
+    - beneficios
+    - promociones
+    - storage
+    - promo
+  merchant_category_hints:
+    shell: combustible
+    copetrol: combustible
+    petropar: combustible
+    petrobras: combustible
+    enex: combustible
+    superseis: supermercados
+    stock: supermercados
+    ferrex: ferreteria
+  sources:
+    - url: https://www.sudameris.com.py/beneficios
+      source_type: html_listing
+    - url: https://www.sudameris.com.py/storage/app/uploads/public/657/b66/643/657b66643ac29237906738.pdf
+      source_type: pdf_campaign
+
+continental:
+  timeout: 20
+  allowed_domains:
+    - ayuda.bancontinental.com.py
+    - www.bancontinental.com.py
+    - bancontinental.com.py
+  exclude_url_hints:
+    - conoce-mas
+    - beneficios
+  exclude_link_text_hints:
+    - conoce mas
+    - ver mas
+    - descubri
+  detail_hints:
+    - promociones-tc
+    - calendario-de-promociones
+    - guia-de-beneficios
+    - promocion-tarjeta-de-credito-digital
+    - pdf
+  merchant_category_hints:
+    shell: combustible
+    copetrol: combustible
+    petropar: combustible
+    petrobras: combustible
+    enex: combustible
+    superseis: supermercados
+    stock: supermercados
+    biggie: supermercados
+    farmacia: salud
+    farmacias: salud
+    supermercado: supermercados
+    supermercados: supermercados
+    combustible: combustible
+    gastronomia: gastronomia
+    tiendas: retail
+    ferrex: ferreteria
+  sources:
+    - url: https://ayuda.bancontinental.com.py/help-center-front/topicos-de-ayuda/tarjetas/promociones-tc
+      source_type: html_listing
+    - url: https://ayuda.bancontinental.com.py/help-center-front/topicos-de-ayuda/tarjetas/promociones-tc/calendario-de-promociones
+      source_type: html_detail
+    - url: https://ayuda.bancontinental.com.py/help-center-front/topicos-de-ayuda/tarjetas/promociones-tc/guia-de-beneficios-con-tarjeta-de-credito
+      source_type: html_detail
+    - url: https://www.bancontinental.com.py/api/uploads/Guia_de_Beneficios_b7bd15d6d6.pdf
+      source_type: pdf_campaign
+
+bnf:
+  timeout: 20
+  allowed_domains:
+    - bnficios.bnf.gov.py
+    - www.bnf.gov.py
+    - bnf.gov.py
+  detail_hints:
+    - producto/
+    - promociones
+    - promocion
+    - pdf
+  merchant_category_hints:
+    shell: combustible
+    copetrol: combustible
+    petropar: combustible
+    petrobras: combustible
+    enex: combustible
+    superseis: supermercados
+    super seis: supermercados
+    stock: supermercados
+    ferrex: ferreteria
+    herramientas: ferreteria
+    farmacias: salud
+  sources:
+    - url: https://bnficios.bnf.gov.py/producto/241/vale-de-combustible-petrobras-de-gs-200-000
+      source_type: html_detail
+    - url: https://bnficios.bnf.gov.py/producto/242/vale-de-combustible-petrobras-de-gs-100-000
+      source_type: html_detail
+    - url: https://bnficios.bnf.gov.py/producto/747/vale-de-compra-superseis-100-000-gs
+      source_type: html_detail
+    - url: https://bnficios.bnf.gov.py/producto/3013/vale-de-compra-stock-200-000-gs
+      source_type: html_detail
+    - url: https://www.bnf.gov.py/uploads/Promocion_Reintegro_Farmacias_2025_b1ef6ef0bb.pdf
+      source_type: pdf_campaign
