@@ -269,6 +269,14 @@ Para saber si termino bien:
 - `status=done`: termino y `last_result` trae resumen operativo
 - `status=error`: fallo y `last_error` trae mensaje legible
 
+El endpoint `GET /admin/collect/status` tambien expone progreso operativo para la UI:
+
+- `progress`: porcentaje de 0 a 100
+- `current_step`: etapa actual, por ejemplo `Procesando Sudameris`
+- `current_bank`: banco actual si aplica
+- `completed_steps` / `total_steps`: avance simple por etapas
+- `last_result.bank_diagnostics`: diagnostico por banco, por ejemplo `ok`, `no_sources_discovered`, `all_blocks_filtered`
+
 Si `ENABLE_ADMIN_ENDPOINTS=false`, esos endpoints devuelven `403`. Es la compuerta minima antes de agregar autenticacion real.
 
 ## Deploy online
@@ -349,7 +357,7 @@ Uso diario recomendado:
 6. Entrar a `/ops` para:
    - correr `collect` del mes actual o de un banco puntual
    - correr `audit`
-   - ver un resumen del ultimo resultado sin salir del navegador
+   - ver barra de progreso, banco actual, warnings, diagnostico por banco y resumen del ultimo resultado sin salir del navegador
 
 Hardening web ya incluido:
 

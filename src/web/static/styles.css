@@ -477,13 +477,75 @@ td {
   border-top: 1px solid rgba(37, 51, 53, 0.08);
 }
 
-.ops-result pre {
+.ops-result pre,
+.ops-status pre {
   overflow-x: auto;
   white-space: pre-wrap;
   background: #fff8ed;
   border-radius: 14px;
   padding: 0.9rem;
   border: 1px solid rgba(37, 51, 53, 0.08);
+}
+
+.progress-card {
+  padding: 1rem;
+  border-radius: 18px;
+  background: #fbf6ed;
+  border: 1px solid rgba(37, 51, 53, 0.08);
+  margin-bottom: 1rem;
+}
+
+.progress-topline,
+.ops-summary-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-weight: 700;
+}
+
+.progress-track {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(37, 51, 53, 0.12);
+  margin: 0.85rem 0 0.65rem;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 0.35s ease;
+}
+
+.progress-idle .progress-fill {
+  background: rgba(95, 91, 82, 0.35);
+}
+
+.progress-error .progress-fill {
+  background: var(--warn);
+}
+
+.progress-done .progress-fill {
+  background: var(--success);
+}
+
+.ops-summary-grid {
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
+.ops-summary-grid span {
+  display: inline-flex;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: var(--soft);
+}
+
+.hidden {
+  display: none !important;
 }
 
 .subtle {

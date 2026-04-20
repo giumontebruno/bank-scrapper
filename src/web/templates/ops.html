@@ -25,21 +25,70 @@
           <h2>Collect</h2>
           <p>Actualiza combustible y promociones del mes elegido sin bloquear la request.</p>
         </div>
+
         <div class="ops-status">
-          <p><strong>Estado actual:</strong> {{ collect_status.status }}</p>
-          <p><strong>Mes/Banco:</strong> {{ collect_status.month or "-" }} / {{ collect_status.bank or "todos" }}</p>
-          <p><strong>Inicio:</strong> {{ collect_status.started_at or "-" }}</p>
-          <p><strong>Fin:</strong> {{ collect_status.finished_at or "-" }}</p>
-          {% if collect_status.last_error %}
-            <p><strong>Error:</strong> {{ collect_status.last_error }}</p>
-          {% endif %}
-          {% if collect_status.last_result %}
-            <p><strong>Último resultado:</strong></p>
-            <pre id="collect-last-result">{{ collect_status.last_result }}</pre>
-          {% endif %}
+          <div class="progress-card progress-{{ collect_status.status }}" id="collect-progress-card">
+            <div class="progress-topline">
+              <strong id="collect-status-label">{{ collect_status.status }}</strong>
+              <span id="collect-progress-label">{{ collect_status.progress | default(0) }}%</span>
+            </div>
+            <div class="progress-track" aria-label="Progreso del collect">
+              <div class="progress-fill" id="collect-progress-fill" style="width: {{ collect_status.progress | default(0) }}%"></div>
+            </div>
+            <p class="subtle" id="collect-current-step">{{ collect_status.current_step or "Sin collect en ejecucion" }}</p>
+          </div>
+
+          <dl class="result-meta compact-meta">
+            <div>
+              <dt>Mes/Banco</dt>
+              <dd><span id="collect-month">{{ collect_status.month or "-" }}</span> / <span id="collect-bank">{{ collect_status.bank or "todos" }}</span></dd>
+            </div>
+            <div>
+              <dt>Banco actual</dt>
+              <dd id="collect-current-bank">{{ collect_status.current_bank or "-" }}</dd>
+            </div>
+            <div>
+              <dt>Pasos</dt>
+              <dd><span id="collect-completed-steps">{{ collect_status.completed_steps | default(0) }}</span>/<span id="collect-total-steps">{{ collect_status.total_steps | default(0) }}</span></dd>
+            </div>
+            <div>
+              <dt>Inicio</dt>
+              <dd id="collect-started-at">{{ collect_status.started_at or "-" }}</dd>
+            </div>
+            <div>
+              <dt>Fin</dt>
+              <dd id="collect-finished-at">{{ collect_status.finished_at or "-" }}</dd>
+            </div>
+          </dl>
+
+          <p class="error-banner {% if not collect_status.last_error %}hidden{% endif %}" id="collect-error-row">
+            <strong>Error:</strong> <span id="collect-last-error">{{ collect_status.last_error or "" }}</span>
+          </p>
+
+          <p><strong>Ultimo resultado:</strong></p>
+          <div class="ops-summary-grid {% if not collect_status.last_result %}hidden{% endif %}" id="collect-result-summary">
+            {% if collect_status.last_result %}
+              <span>Promos: {{ collect_status.last_result.promotions_total | default("-") }}</span>
+              <span>Fuel: {{ collect_status.last_result.fuel_prices | default("-") }}</span>
+              <span>Bancos: {{ collect_status.last_result.banks_processed | default([]) | join(", ") }}</span>
+            {% endif %}
+          </div>
+
+          <p><strong>Diagnostico por banco:</strong></p>
+          <ul class="kv-list {% if not collect_status.last_result or not collect_status.last_result.bank_diagnostics %}hidden{% endif %}" id="collect-bank-diagnostics">
+            {% if collect_status.last_result and collect_status.last_result.bank_diagnostics %}
+              {% for bank, diagnostic in collect_status.last_result.bank_diagnostics.items() %}
+                <li><span>{{ bank }}</span><strong>{{ diagnostic }}</strong></li>
+              {% endfor %}
+            {% endif %}
+          </ul>
+
+          <pre class="{% if not collect_status.last_result %}hidden{% endif %}" id="collect-last-result">{% if collect_status.last_result %}{{ collect_status.last_result | tojson(indent=2) }}{% endif %}</pre>
+
           <a class="source-link" href="/admin/collect/status" target="_blank" rel="noreferrer">Ver JSON de estado</a>
           <a class="source-link" href="/ops?month={{ default_month }}">Actualizar estado</a>
         </div>
+
         <form action="/ops/collect" method="post" class="filters-form">
           <label>
             Mes
@@ -56,12 +105,12 @@
           </label>
           <button type="submit">Iniciar collect</button>
         </form>
+
         {% if collect_result %}
           <div class="ops-result">
             <p><strong>Collect iniciado:</strong> {{ collect_result.status }}</p>
             <p><strong>Mes:</strong> {{ collect_result.month }}</p>
             <p><strong>Banco:</strong> {{ collect_result.bank or "todos" }}</p>
-            <pre>{{ collect_result }}</pre>
           </div>
         {% endif %}
       </article>
@@ -110,15 +159,107 @@
         {% endif %}
       </article>
     </section>
+
     <script>
       (function () {
         var statusValue = "{{ collect_status.status }}";
-        if (statusValue !== "running") {
-          return;
+        var timer = null;
+
+        function text(id, value) {
+          var node = document.getElementById(id);
+          if (node) {
+            node.textContent = value || "-";
+          }
         }
-        setInterval(function () {
-          window.location.reload();
-        }, 5000);
+
+        function renderDiagnostics(items) {
+          var list = document.getElementById("collect-bank-diagnostics");
+          if (!list) {
+            return;
+          }
+          list.innerHTML = "";
+          var keys = Object.keys(items || {});
+          if (!keys.length) {
+            list.classList.add("hidden");
+            return;
+          }
+          keys.forEach(function (key) {
+            var item = document.createElement("li");
+            var left = document.createElement("span");
+            var right = document.createElement("strong");
+            left.textContent = key;
+            right.textContent = items[key];
+            item.appendChild(left);
+            item.appendChild(right);
+            list.appendChild(item);
+          });
+          list.classList.remove("hidden");
+        }
+
+        function renderResult(result) {
+          var summary = document.getElementById("collect-result-summary");
+          var pre = document.getElementById("collect-last-result");
+          if (!result) {
+            return;
+          }
+          if (summary) {
+            summary.innerHTML = "<span>Promos: " + (result.promotions_total ?? "-") + "</span>"
+              + "<span>Fuel: " + (result.fuel_prices ?? "-") + "</span>"
+              + "<span>Bancos: " + ((result.banks_processed || []).join(", ") || "-") + "</span>";
+            summary.classList.remove("hidden");
+          }
+          renderDiagnostics(result.bank_diagnostics || {});
+          if (pre) {
+            pre.textContent = JSON.stringify(result, null, 2);
+            pre.classList.remove("hidden");
+          }
+        }
+
+        function renderStatus(payload) {
+          var progress = payload.progress || 0;
+          var fill = document.getElementById("collect-progress-fill");
+          var card = document.getElementById("collect-progress-card");
+          if (fill) {
+            fill.style.width = progress + "%";
+          }
+          if (card) {
+            card.className = "progress-card progress-" + payload.status;
+          }
+          text("collect-status-label", payload.status);
+          text("collect-progress-label", progress + "%");
+          text("collect-current-step", payload.current_step);
+          text("collect-month", payload.month);
+          text("collect-bank", payload.bank || "todos");
+          text("collect-current-bank", payload.current_bank);
+          text("collect-completed-steps", payload.completed_steps);
+          text("collect-total-steps", payload.total_steps);
+          text("collect-started-at", payload.started_at);
+          text("collect-finished-at", payload.finished_at);
+          text("collect-last-error", payload.last_error || "");
+          var errorRow = document.getElementById("collect-error-row");
+          if (errorRow && payload.last_error) {
+            errorRow.classList.remove("hidden");
+          }
+          renderResult(payload.last_result);
+          if (payload.status !== "running" && timer) {
+            clearInterval(timer);
+          }
+        }
+
+        function pollStatus() {
+          fetch("/admin/collect/status")
+            .then(function (response) { return response.ok ? response.json() : null; })
+            .then(function (payload) {
+              if (payload) {
+                renderStatus(payload);
+              }
+            })
+            .catch(function () {});
+        }
+
+        if (statusValue === "running") {
+          timer = setInterval(pollStatus, 3000);
+        }
       })();
     </script>
   {% endif %}

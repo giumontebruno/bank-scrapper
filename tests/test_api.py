@@ -104,12 +104,13 @@ def test_admin_collect_starts_in_background_and_updates_status(monkeypatch, tmp_
     monkeypatch.setattr(
         api_main,
         "run_collect",
-        lambda repo, month, bank=None: {
+        lambda repo, month, bank=None, progress_callback=None: {
             "month": month,
             "bank": bank,
             "fuel_prices": 2,
             "promotions": {"ueno": 1},
             "scraper_metrics": {"ueno": {"persisted_promotions_count": 1}},
+            "bank_diagnostics": {"ueno": "ok"},
             "warnings": [],
         },
     )
@@ -124,9 +125,12 @@ def test_admin_collect_starts_in_background_and_updates_status(monkeypatch, tmp_
     assert status.json()["status"] in {"running", "done"}
     assert status.json()["month"] == "2026-04"
     assert status.json()["bank"] == "itau"
+    assert {"progress", "current_step", "current_bank", "total_steps", "completed_steps"} <= set(status.json())
     if status.json()["status"] == "done":
         assert status.json()["finished_at"] is not None
+        assert status.json()["progress"] == 100
         assert status.json()["last_result"]["promotions_total"] == 1
+        assert status.json()["last_result"]["bank_diagnostics"] == {"ueno": "ok"}
 
 
 def test_admin_collect_returns_400_when_month_missing(monkeypatch, tmp_path: Path) -> None:
@@ -180,7 +184,7 @@ def test_admin_collect_persists_error_when_background_fails(monkeypatch, tmp_pat
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
     monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
 
-    def _boom(repo, month, bank=None):
+    def _boom(repo, month, bank=None, progress_callback=None):
         raise RuntimeError("collect failed in background")
 
     monkeypatch.setattr(api_main, "run_collect", _boom)
@@ -194,6 +198,7 @@ def test_admin_collect_persists_error_when_background_fails(monkeypatch, tmp_pat
     assert status.json()["status"] == "error"
     assert "collect failed in background" in (status.json()["last_error"] or "")
     assert status.json()["finished_at"] is not None
+    assert status.json()["current_step"] == "Collect con error"
 
 
 def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path) -> None:
@@ -205,7 +210,7 @@ def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
     client = TestClient(api_main.app)
 
-    def _boom(repo, month, bank=None):
+    def _boom(repo, month, bank=None, progress_callback=None):
         raise RuntimeError("first collect failed")
 
     monkeypatch.setattr(api_main, "run_collect", _boom)
@@ -217,7 +222,13 @@ def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(
         api_main,
         "run_collect",
-        lambda repo, month, bank=None: {"month": month, "bank": bank, "fuel_prices": 1, "promotions": 2, "warnings": []},
+        lambda repo, month, bank=None, progress_callback=None: {
+            "month": month,
+            "bank": bank,
+            "fuel_prices": 1,
+            "promotions": 2,
+            "warnings": [],
+        },
     )
     ok = client.post("/admin/collect", json={"month": "2026-04", "bank": "ueno"})
     done_status = client.get("/admin/collect/status").json()
@@ -227,6 +238,43 @@ def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path)
     assert done_status["last_error"] is None
     assert done_status["finished_at"] is not None
     assert done_status["last_result"]["promotions_total"] == 2
+    assert "bank_diagnostics" in done_status["last_result"]
+
+
+def test_collect_job_progress_updates_for_general_collect(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+
+    def _collect(repo, month, bank=None, progress_callback=None):
+        assert progress_callback is not None
+        progress_callback({"current_step": "Procesando Ueno", "current_bank": "ueno", "completed_steps": 2})
+        snapshot = api_main.get_collect_job_status()
+        assert snapshot["status"] == "running"
+        assert snapshot["progress"] > 0
+        assert snapshot["current_bank"] == "ueno"
+        return {
+            "month": month,
+            "bank": bank,
+            "fuel_prices": 8,
+            "promotions": {"ueno": 14, "itau": 22},
+            "bank_diagnostics": {"ueno": "ok", "itau": "ok"},
+            "warnings": [],
+        }
+
+    monkeypatch.setattr(api_main, "run_collect", _collect)
+    client = TestClient(api_main.app)
+
+    response = client.post("/admin/collect", json={"month": "2026-04"})
+    status = client.get("/admin/collect/status").json()
+
+    assert response.status_code == 200
+    assert status["status"] == "done"
+    assert status["progress"] == 100
+    assert status["last_result"]["banks_processed"] == ["itau", "ueno"]
 
 
 def test_api_respects_database_url_from_env(monkeypatch, tmp_path: Path) -> None:

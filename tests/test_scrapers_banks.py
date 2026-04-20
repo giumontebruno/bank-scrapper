@@ -187,6 +187,41 @@ def test_ueno_scraper_ignores_operational_pdf_blocks(monkeypatch) -> None:
     assert all((item.merchant_normalized or "") not in {"Comunicaciones", "Pagina Web Https Www Ueno Com Py"} for item in promotions)
 
 
+def test_ueno_scraper_does_not_use_corporate_issuer_as_merchant(monkeypatch) -> None:
+    config = {
+        "ueno": {
+            "allowed_domains": ["www.ueno.com.py"],
+            "merchant_category_hints": {"biggie": "supermercados"},
+            "sources": [{"url": "https://www.ueno.com.py/beneficios-sitemap.xml", "source_type": "sitemap"}],
+        }
+    }
+    responses = {
+        "https://www.ueno.com.py/beneficios-sitemap.xml": FakeResponse(
+            "https://www.ueno.com.py/beneficios-sitemap.xml",
+            text="<urlset><url><loc>https://www.ueno.com.py/beneficio-byc/abr2026/biggie/</loc></url></urlset>",
+            content_type="text/xml",
+        ),
+        "https://www.ueno.com.py/beneficio-byc/abr2026/biggie/": FakeResponse(
+            "https://www.ueno.com.py/beneficio-byc/abr2026/biggie/",
+            text='<html><body><a href="https://www.ueno.com.py/wp-content/uploads/2026/04/ueno-biggie.pdf">Descargar pdf</a></body></html>',
+        ),
+        "https://www.ueno.com.py/wp-content/uploads/2026/04/ueno-biggie.pdf": FakeResponse(
+            "https://www.ueno.com.py/wp-content/uploads/2026/04/ueno-biggie.pdf",
+            content=b"ueno-pdf",
+            content_type="application/pdf",
+        ),
+    }
+    monkeypatch.setattr(
+        "scrapers.common.extract_pdf_text",
+        lambda payload: "Ueno Bank S A\nBiggie\n20% de reintegro\nVigencia: 01/04/2026 al 30/04/2026",
+    )
+
+    promotions = UenoScraper(session=FakeSession(responses), config=config).collect("2026-04")
+
+    assert promotions
+    assert promotions[0].merchant_normalized == "Biggie"
+
+
 def test_ueno_discovery_excludes_cta_links() -> None:
     scraper = UenoScraper(
         session=FakeSession({}),
@@ -255,6 +290,19 @@ def test_itau_scraper_ignores_disclaimer_as_merchant() -> None:
     )
 
     assert merchant == "ferrex"
+
+
+def test_itau_scraper_rejects_repeated_heading_and_single_letter_merchants() -> None:
+    scraper = ItauScraper(
+        session=FakeSession({}),
+        config={"itau": {"merchant_category_hints": {"ferrex": "ferreteria"}}},
+    )
+
+    repeated = scraper.extract_merchant("Ppprrrooommmoooccciiiooonnneeesss\n20% de descuento", title="Ppprrrooommmoooccciiiooonnneeesss")
+    single = scraper.extract_merchant("P\n20% de descuento en ferreteria", title="P")
+
+    assert repeated is None
+    assert single is None
 
 
 def test_sudameris_scraper_collects_html_and_pdf(monkeypatch) -> None:

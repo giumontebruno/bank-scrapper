@@ -29,6 +29,15 @@ def test_assess_merchant_rejects_generic_or_disclaimer_text() -> None:
     category_fragment = assess_merchant_candidate("De tiendas")
     settlement = assess_merchant_candidate("Plazo de acreditacion del reintegro")
     app_notice = assess_merchant_candidate("Notificaciones en la aplicacion movil del banco")
+    repeated_heading = assess_merchant_candidate("Ppprrrooommmoooccciiiooonnneeesss")
+    single_letter = assess_merchant_candidate("P")
+    corporate = assess_merchant_candidate("Ueno Bank S A")
+    temporal = assess_merchant_candidate("Exclusivamente Los Dias Jueves")
+    legal_series = assess_merchant_candidate("Las Series A Y B")
+    payment_label = assess_merchant_candidate("Medios De Pago Habilitados")
+    promo_heading = assess_merchant_candidate("Disfruta Tus Rubros Favoritos En Cuotas")
+    generic_merchant = assess_merchant_candidate("Comercios Beneficio")
+    card_scope = assess_merchant_candidate("Mastercard Debit")
 
     assert not generic.is_valid
     assert not rubric.is_valid
@@ -40,3 +49,12 @@ def test_assess_merchant_rejects_generic_or_disclaimer_text() -> None:
     assert not category_fragment.is_valid
     assert not settlement.is_valid
     assert not app_notice.is_valid
+    assert not repeated_heading.is_valid
+    assert not single_letter.is_valid
+    assert not corporate.is_valid
+    assert not temporal.is_valid
+    assert not legal_series.is_valid
+    assert not payment_label.is_valid
+    assert not promo_heading.is_valid
+    assert not generic_merchant.is_valid
+    assert not card_scope.is_valid

@@ -38,6 +38,10 @@ GENERIC_MERCHANT_TERMS = {
     "campana válida",
     "campaña válida",
     "ver bases y condiciones",
+    "medios de pago habilitados",
+    "disfruta tus rubros favoritos en cuotas",
+    "comercios beneficio",
+    "mastercard debit",
     "conocer promos",
     "conoce mas",
     "conoce mas sobre ueno",
@@ -47,6 +51,9 @@ GENERIC_MERCHANT_TERMS = {
     "descubri beneficios",
     "canjea",
     "canjear",
+    "medios de pago",
+    "disfruta tus rubros",
+    "comercios beneficio",
     "reintegro",
     "en caja reintegro",
     "intereses",
@@ -80,6 +87,14 @@ GENERIC_MERCHANT_TERMS = {
     "viajes",
     "otros",
     "exclusivo pos",
+    "exclusivamente los dias jueves",
+    "las series a y b",
+    "ueno bank",
+    "ueno bank a",
+    "ueno bank s a",
+    "banco itau",
+    "itau paraguay",
+    "itau",
     "...",
 }
 
@@ -117,6 +132,10 @@ GENERIC_PREFIXES = (
     "sin intereses",
     "descargar",
     "click",
+    "las series",
+    "exclusivamente los dias",
+    "ueno bank",
+    "banco ",
 )
 
 DAY_PREFIXES = ("lunes", "martes", "miercoles", "miércoles", "jueves", "viernes", "sabado", "sábado", "domingo")
@@ -180,9 +199,12 @@ def assess_merchant_candidate(raw_name: str | None) -> MerchantAssessment:
     cleaned_original = re.sub(r"\s+", " ", raw_name).strip(" -•\t\r\n")
     normalized = normalize_text(cleaned_original)
     compact = _strip_noise(normalized)
+    repeated_compact = _collapse_repeated_letters(compact)
 
     if not compact:
         return MerchantAssessment(raw_name=raw_name, reason="empty_after_clean")
+    if len(compact) < 3:
+        return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="too_short")
 
     for canonical, aliases in BRAND_RULES.items():
         alias_set = {normalize_text(alias) for alias in aliases}
@@ -200,11 +222,11 @@ def assess_merchant_candidate(raw_name: str | None) -> MerchantAssessment:
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="contains_numeric_or_percent")
     if len(compact) > 70 or len(compact.split()) > 8:
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="too_long")
-    if compact in GENERIC_MERCHANT_TERMS:
+    if compact in GENERIC_MERCHANT_TERMS or repeated_compact in GENERIC_MERCHANT_TERMS:
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="generic_term")
-    if compact.startswith(GENERIC_PREFIXES) or compact.startswith(DAY_PREFIXES):
+    if compact.startswith(GENERIC_PREFIXES) or compact.startswith(DAY_PREFIXES) or repeated_compact.startswith(GENERIC_PREFIXES):
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="generic_prefix")
-    if any(phrase in compact for phrase in GENERIC_MERCHANT_TERMS if len(phrase.split()) > 1):
+    if any(phrase in compact or phrase in repeated_compact for phrase in GENERIC_MERCHANT_TERMS if len(phrase.split()) > 1):
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="generic_phrase")
     if any(
         token in compact
@@ -224,9 +246,15 @@ def assess_merchant_candidate(raw_name: str | None) -> MerchantAssessment:
             "canjea",
             "canjear",
             "ver mas",
+            "medios de pago",
+            "disfruta tus rubros",
+            "comercios beneficio",
             "plazo de acreditacion",
             "notificaciones",
             "aplicacion movil del banco",
+            "ueno bank",
+            "las series",
+            "exclusivamente los dias",
         ]
     ):
         return MerchantAssessment(raw_name=raw_name, cleaned_name=cleaned_original, reason="disclaimer_or_navigation")
@@ -260,6 +288,10 @@ def _strip_noise(value: str) -> str:
     for location in LOCATION_STOPWORDS:
         cleaned = cleaned.replace(location, " ")
     return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _collapse_repeated_letters(value: str) -> str:
+    return re.sub(r"([a-z])\1{2,}", r"\1", value)
 
 
 def _titleize(value: str) -> str:

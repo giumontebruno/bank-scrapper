@@ -28,8 +28,13 @@ class CollectJobState:
         self._last_result: dict[str, object] | None = None
         self._month: str | None = None
         self._bank: str | None = None
+        self._progress = 0
+        self._current_step = "Sin collect en ejecucion"
+        self._current_bank: str | None = None
+        self._total_steps = 0
+        self._completed_steps = 0
 
-    def try_start(self, *, month: str, bank: str | None) -> dict[str, object]:
+    def try_start(self, *, month: str, bank: str | None, total_steps: int = 1) -> dict[str, object]:
         with self._lock:
             if self._status == "running":
                 raise RuntimeError("collect ya está en ejecución")
@@ -40,7 +45,29 @@ class CollectJobState:
             self._last_result = None
             self._month = month
             self._bank = bank
+            self._progress = 0
+            self._current_step = "Collect iniciado"
+            self._current_bank = bank
+            self._total_steps = max(1, total_steps)
+            self._completed_steps = 0
             return {"status": "started", "month": month, "bank": bank}
+
+    def update_progress(
+        self,
+        *,
+        current_step: str | None = None,
+        current_bank: str | None = None,
+        completed_steps: int | None = None,
+    ) -> None:
+        with self._lock:
+            if self._status != "running":
+                return
+            if current_step:
+                self._current_step = current_step
+            self._current_bank = current_bank
+            if completed_steps is not None:
+                self._completed_steps = max(0, min(completed_steps, self._total_steps))
+            self._progress = _progress_percent(self._completed_steps, self._total_steps)
 
     def mark_done(self, *, result: dict[str, object]) -> None:
         with self._lock:
@@ -48,12 +75,17 @@ class CollectJobState:
             self._finished_at = _now_iso()
             self._last_result = result
             self._last_error = None
+            self._progress = 100
+            self._current_step = "Collect finalizado"
+            self._current_bank = None
+            self._completed_steps = self._total_steps
 
     def mark_error(self, *, error: str) -> None:
         with self._lock:
             self._status = "error"
             self._finished_at = _now_iso()
             self._last_error = error
+            self._current_step = "Collect con error"
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
@@ -65,6 +97,11 @@ class CollectJobState:
                 "last_result": self._last_result,
                 "month": self._month,
                 "bank": self._bank,
+                "progress": self._progress,
+                "current_step": self._current_step,
+                "current_bank": self._current_bank,
+                "total_steps": self._total_steps,
+                "completed_steps": self._completed_steps,
             }
 
     def reset(self) -> None:
@@ -76,6 +113,11 @@ class CollectJobState:
             self._last_result = None
             self._month = None
             self._bank = None
+            self._progress = 0
+            self._current_step = "Sin collect en ejecucion"
+            self._current_bank = None
+            self._total_steps = 0
+            self._completed_steps = 0
 
     def is_running(self) -> bool:
         with self._lock:
@@ -238,7 +280,7 @@ def _bank_label(bank_key: str) -> str:
 
 
 def start_collect_job(background_tasks: BackgroundTasks, *, month: str, bank: str | None) -> dict[str, object]:
-    started = _collect_job_state.try_start(month=month, bank=bank)
+    started = _collect_job_state.try_start(month=month, bank=bank, total_steps=_collect_total_steps(bank))
     background_tasks.add_task(_run_collect_job, month, bank)
     return started
 
@@ -253,7 +295,12 @@ def reset_collect_job_state() -> None:
 
 def _run_collect_job(month: str, bank: str | None) -> None:
     try:
-        result = run_collect(get_repository(), month=month, bank=bank)
+        result = run_collect(
+            get_repository(),
+            month=month,
+            bank=bank,
+            progress_callback=lambda payload: _collect_job_state.update_progress(**payload),
+        )
     except Exception as exc:
         _collect_job_state.mark_error(error=str(exc))
         return
@@ -270,6 +317,7 @@ def _compact_collect_result(result: dict[str, object]) -> dict[str, object]:
         "bank": result.get("bank"),
         "fuel_prices": result.get("fuel_prices", 0),
         "warnings": result.get("warnings", []),
+        "bank_diagnostics": result.get("bank_diagnostics", {}),
     }
     promotions = result.get("promotions")
     if isinstance(promotions, dict):
@@ -284,6 +332,13 @@ def _compact_collect_result(result: dict[str, object]) -> dict[str, object]:
     else:
         compact["promotions"] = promotions
     return compact
+
+
+def _collect_total_steps(bank: str | None) -> int:
+    if bank:
+        return 4
+    # Combustible + un paso por banco + audit/warnings.
+    return len(SCRAPER_REGISTRY) + 2
 
 
 def _normalize_bank(raw_bank: object) -> str | None:
@@ -306,6 +361,13 @@ def _normalize_bank(raw_bank: object) -> str | None:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _progress_percent(completed_steps: int, total_steps: int) -> int:
+    if total_steps <= 0:
+        return 0
+    # Mientras corre dejamos 100 reservado para mark_done, asi la UI distingue "terminando" de "listo".
+    return max(0, min(99, int((completed_steps / total_steps) * 100)))
 
 
 app = create_app()

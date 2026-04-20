@@ -183,6 +183,11 @@ def test_web_ops_collect_and_audit_forms(monkeypatch, tmp_path: Path) -> None:
             "last_result": None,
             "month": "2026-04",
             "bank": "Ueno",
+            "progress": 40,
+            "current_step": "Procesando Ueno",
+            "current_bank": "ueno",
+            "total_steps": 4,
+            "completed_steps": 2,
         },
     )
     monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "catalog-second.sqlite"))
@@ -194,6 +199,8 @@ def test_web_ops_collect_and_audit_forms(monkeypatch, tmp_path: Path) -> None:
     assert collect.status_code == 200
     assert "Collect iniciado" in collect.text
     assert "running" in collect.text
+    assert "Procesando Ueno" in collect.text
+    assert "collect-progress-fill" in collect.text
     assert audit.status_code == 200
     assert "Readiness" in audit.text
 
@@ -210,9 +217,20 @@ def test_web_ops_shows_collect_error_and_last_result(monkeypatch, tmp_path: Path
             "started_at": "2026-04-20T12:00:00+00:00",
             "finished_at": "2026-04-20T12:05:00+00:00",
             "last_error": "collect failed in background",
-            "last_result": {"month": "2026-04", "fuel_prices": 8, "promotions_total": 55},
+            "last_result": {
+                "month": "2026-04",
+                "fuel_prices": 8,
+                "promotions_total": 55,
+                "banks_processed": ["ueno"],
+                "bank_diagnostics": {"ueno": "ok"},
+            },
             "month": "2026-04",
             "bank": "itau",
+            "progress": 60,
+            "current_step": "Collect con error",
+            "current_bank": "itau",
+            "total_steps": 4,
+            "completed_steps": 2,
         },
     )
     client = TestClient(api_main.create_app())
@@ -221,6 +239,8 @@ def test_web_ops_shows_collect_error_and_last_result(monkeypatch, tmp_path: Path
     assert response.status_code == 200
     assert "collect failed in background" in response.text
     assert "promotions_total" in response.text
+    assert "ueno" in response.text
+    assert "ok" in response.text
 
 
 def test_web_ops_handles_invalid_input(monkeypatch, tmp_path: Path) -> None:
