@@ -89,21 +89,23 @@
           <a class="source-link" href="/ops?month={{ default_month }}">Actualizar estado</a>
         </div>
 
-        <form action="/ops/collect" method="post" class="filters-form">
+        <form action="/ops/collect" method="post" class="filters-form" id="collect-form" data-running="{% if collect_status.status == 'running' %}true{% else %}false{% endif %}">
           <label>
             Mes
-            <input type="text" name="month" value="{{ default_month }}" placeholder="2026-04" />
+            <input type="text" name="month" value="{{ default_month }}" placeholder="2026-04" {% if collect_status.status == "running" %}disabled{% endif %} />
           </label>
           <label>
             Banco opcional
-            <select name="bank">
+            <select name="bank" {% if collect_status.status == "running" %}disabled{% endif %}>
               <option value="">Todos</option>
               {% for item in banks %}
                 <option value="{{ item }}">{{ item }}</option>
               {% endfor %}
             </select>
           </label>
-          <button type="submit">Iniciar collect</button>
+          <button type="submit" id="collect-submit" {% if collect_status.status == "running" %}disabled aria-disabled="true"{% endif %}>
+            {% if collect_status.status == "running" %}Collect en ejecucion{% else %}Iniciar collect{% endif %}
+          </button>
         </form>
 
         {% if collect_result %}
@@ -241,9 +243,26 @@
             errorRow.classList.remove("hidden");
           }
           renderResult(payload.last_result);
+          setCollectFormEnabled(payload.status !== "running");
           if (payload.status !== "running" && timer) {
             clearInterval(timer);
           }
+        }
+
+        function setCollectFormEnabled(enabled) {
+          var form = document.getElementById("collect-form");
+          var button = document.getElementById("collect-submit");
+          if (!form) {
+            return;
+          }
+          form.dataset.running = enabled ? "false" : "true";
+          form.querySelectorAll("input, select, button").forEach(function (node) {
+            node.disabled = !enabled;
+            if (node.id === "collect-submit") {
+              node.setAttribute("aria-disabled", enabled ? "false" : "true");
+              node.textContent = enabled ? "Iniciar collect" : "Collect en ejecucion";
+            }
+          });
         }
 
         function pollStatus() {
@@ -258,7 +277,20 @@
         }
 
         if (statusValue === "running") {
+          setCollectFormEnabled(false);
           timer = setInterval(pollStatus, 3000);
+        }
+
+        var collectForm = document.getElementById("collect-form");
+        if (collectForm) {
+          collectForm.addEventListener("submit", function (event) {
+            if (collectForm.dataset.running === "true") {
+              event.preventDefault();
+              return;
+            }
+            collectForm.dataset.running = "true";
+            setCollectFormEnabled(false);
+          });
         }
       })();
     </script>

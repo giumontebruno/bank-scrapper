@@ -100,7 +100,7 @@ def test_admin_collect_starts_in_background_and_updates_status(monkeypatch, tmp_
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
     monkeypatch.setattr(
         api_main,
         "run_collect",
@@ -139,7 +139,7 @@ def test_admin_collect_returns_400_when_month_missing(monkeypatch, tmp_path: Pat
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
     client = TestClient(api_main.app)
 
     response = client.post("/admin/collect", json={})
@@ -153,7 +153,7 @@ def test_admin_collect_returns_400_when_bank_invalid(monkeypatch, tmp_path: Path
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
     client = TestClient(api_main.app)
 
     response = client.post("/admin/collect", json={"month": "2026-04", "bank": "banco-xyz"})
@@ -167,7 +167,7 @@ def test_admin_collect_returns_409_when_already_running(monkeypatch, tmp_path: P
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
     api_main._collect_job_state.try_start(month="2026-04", bank="ueno")
 
     client = TestClient(api_main.app)
@@ -182,7 +182,7 @@ def test_admin_collect_persists_error_when_background_fails(monkeypatch, tmp_pat
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
 
     def _boom(repo, month, bank=None, progress_callback=None):
         raise RuntimeError("collect failed in background")
@@ -207,7 +207,7 @@ def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path)
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
     client = TestClient(api_main.app)
 
     def _boom(repo, month, bank=None, progress_callback=None):
@@ -247,7 +247,7 @@ def test_collect_job_progress_updates_for_general_collect(monkeypatch, tmp_path:
 
     api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
-    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings, request=None: None)
 
     def _collect(repo, month, bank=None, progress_callback=None):
         assert progress_callback is not None
@@ -295,3 +295,61 @@ def test_api_respects_database_url_from_env(monkeypatch, tmp_path: Path) -> None
     assert health.status_code == 200
     assert health.json()["database_backend"] == "sqlite"
     assert admin.status_code == 403
+
+
+def test_admin_endpoints_require_token_when_configured(monkeypatch, tmp_path: Path) -> None:
+    db_url = f"sqlite:///{(tmp_path / 'admin-token.sqlite').as_posix()}"
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("ENABLE_ADMIN_ENDPOINTS", "true")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    import api.main as api_main
+
+    api_main = importlib.reload(api_main)
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "seed.sqlite"))
+    client = TestClient(api_main.create_app())
+
+    missing = client.get("/admin/collect/status")
+    wrong = client.get("/admin/collect/status", headers={"X-Admin-Token": "wrong"})
+    ok = client.get("/admin/collect/status", headers={"X-Admin-Token": "secret-token"})
+
+    assert missing.status_code == 403
+    assert wrong.status_code == 403
+    assert ok.status_code == 200
+    assert ok.json()["status"] in {"idle", "done", "error", "running"}
+
+
+def test_admin_collect_accepts_cookie_token(monkeypatch, tmp_path: Path) -> None:
+    db_url = f"sqlite:///{(tmp_path / 'admin-cookie.sqlite').as_posix()}"
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("ENABLE_ADMIN_ENDPOINTS", "true")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    import api.main as api_main
+
+    api_main = importlib.reload(api_main)
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "seed-cookie.sqlite"))
+    monkeypatch.setattr(
+        api_main,
+        "run_collect",
+        lambda repo, month, bank=None, progress_callback=None: {
+            "month": month,
+            "bank": bank,
+            "fuel_prices": 0,
+            "promotions": 0,
+            "warnings": [],
+        },
+    )
+    client = TestClient(api_main.create_app())
+    client.cookies.set("promo_admin_token", "secret-token")
+
+    response = client.post("/admin/collect", json={"month": "2026-04"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "started"

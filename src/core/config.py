@@ -25,6 +25,7 @@ class Settings:
     log_level: str = "INFO"
     cors_origins: list[str] = field(default_factory=lambda: ["*"])
     enable_admin_endpoints: bool = True
+    admin_token: str = ""
     bank_sources_path: Path = PROJECT_ROOT / "config" / "bank_sources.yaml"
 
     @property
@@ -53,6 +54,7 @@ def get_settings() -> Settings:
     log_level = (os.getenv("LOG_LEVEL") or env.get("LOG_LEVEL") or "INFO").strip().upper()
     origins_raw = (os.getenv("API_CORS_ORIGINS") or env.get("API_CORS_ORIGINS") or "*").strip()
     enable_admin_raw = os.getenv("ENABLE_ADMIN_ENDPOINTS") or env.get("ENABLE_ADMIN_ENDPOINTS")
+    admin_token = (os.getenv("ADMIN_TOKEN") or env.get("ADMIN_TOKEN") or "").strip()
     bank_sources_raw = os.getenv("BANK_SOURCES_PATH") or env.get("BANK_SOURCES_PATH")
 
     return Settings(
@@ -63,6 +65,7 @@ def get_settings() -> Settings:
         log_level=log_level,
         cors_origins=_parse_csv(origins_raw),
         enable_admin_endpoints=_parse_bool(enable_admin_raw, default=app_env in {"local", "development", "dev"}),
+        admin_token=admin_token,
         bank_sources_path=Path(bank_sources_raw) if bank_sources_raw else PROJECT_ROOT / "config" / "bank_sources.yaml",
     )
 

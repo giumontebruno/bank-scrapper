@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from secrets import compare_digest
 from threading import Lock
 from typing import Any
 
@@ -223,10 +224,11 @@ def create_app() -> FastAPI:
 
     @api.post("/admin/collect")
     def admin_collect(
+        request: Request,
         background_tasks: BackgroundTasks,
         payload: dict[str, Any] | None = Body(None),
     ) -> dict[str, object]:
-        _ensure_admin_enabled(settings)
+        _ensure_admin_enabled(settings, request)
         payload = payload or {}
         month = payload.get("month")
         bank = _normalize_bank(payload.get("bank"))
@@ -239,13 +241,13 @@ def create_app() -> FastAPI:
         return started
 
     @api.get("/admin/collect/status")
-    def admin_collect_status() -> dict[str, object]:
-        _ensure_admin_enabled(settings)
+    def admin_collect_status(request: Request) -> dict[str, object]:
+        _ensure_admin_enabled(settings, request)
         return get_collect_job_status()
 
     @api.post("/admin/audit")
-    def admin_audit(payload: dict[str, Any] | None = Body(None)) -> dict[str, object]:
-        _ensure_admin_enabled(settings)
+    def admin_audit(request: Request, payload: dict[str, Any] | None = Body(None)) -> dict[str, object]:
+        _ensure_admin_enabled(settings, request)
         payload = payload or {}
         report = build_audit_report(
             get_repository(),
@@ -268,9 +270,23 @@ def get_repository() -> PromotionRepository:
     return PromotionRepository.default()
 
 
-def _ensure_admin_enabled(settings: Any) -> None:
+def _ensure_admin_enabled(settings: Any, request: Request | None = None) -> None:
     if not settings.enable_admin_endpoints:
         raise HTTPException(status_code=403, detail="admin endpoints deshabilitados para este entorno")
+    if settings.admin_token and not _admin_token_matches(settings.admin_token, request):
+        raise HTTPException(status_code=403, detail="token admin invalido o ausente")
+
+
+def _admin_token_matches(expected_token: str, request: Request | None) -> bool:
+    if request is None:
+        return False
+    provided = (
+        request.headers.get("X-Admin-Token")
+        or request.cookies.get("promo_admin_token")
+        or request.query_params.get("token")
+        or ""
+    )
+    return bool(provided) and compare_digest(provided, expected_token)
 
 
 def _bank_label(bank_key: str) -> str:

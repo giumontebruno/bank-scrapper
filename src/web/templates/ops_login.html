@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-top">
+    <div>
+      <span class="eyebrow">Operacion protegida</span>
+      <h1>Acceso a /ops</h1>
+      <p class="subtle">Ingresa el token admin para habilitar collect y audit desde este navegador.</p>
+    </div>
+  </section>
+
+  <section class="panel ops-login-panel">
+    {% if error_message %}
+      <p class="error-banner">{{ error_message }}</p>
+    {% endif %}
+    <form action="/ops/login" method="post" class="filters-form">
+      <label>
+        Token admin
+        <input type="password" name="token" placeholder="ADMIN_TOKEN" autocomplete="current-password" />
+      </label>
+      <button type="submit">Entrar a operaciones</button>
+    </form>
+    <p class="subtle">Las vistas publicas siguen disponibles sin token.</p>
+  </section>
+{% endblock %}

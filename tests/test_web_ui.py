@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from core.config import reset_settings_cache
 from models.promotion import FuelPrice, Promotion
 from query.repository import PromotionRepository
 
@@ -83,6 +84,7 @@ def _seed_repository(path: Path) -> PromotionRepository:
 
 
 def _build_client(monkeypatch, tmp_path: Path) -> TestClient:
+    reset_settings_cache()
     repository = _seed_repository(tmp_path / "catalog.sqlite")
     import api.main as api_main
 
@@ -241,6 +243,145 @@ def test_web_ops_shows_collect_error_and_last_result(monkeypatch, tmp_path: Path
     assert "promotions_total" in response.text
     assert "ueno" in response.text
     assert "ok" in response.text
+
+
+def test_web_ops_disables_collect_form_while_running(monkeypatch, tmp_path: Path) -> None:
+    _build_client(monkeypatch, tmp_path)
+    import api.main as api_main
+
+    monkeypatch.setattr(
+        api_main,
+        "get_collect_job_status",
+        lambda: {
+            "status": "running",
+            "started_at": "2026-04-20T12:00:00+00:00",
+            "finished_at": None,
+            "last_error": None,
+            "last_result": None,
+            "month": "2026-04",
+            "bank": None,
+            "progress": 50,
+            "current_step": "Procesando Sudameris",
+            "current_bank": "sudameris",
+            "total_steps": 7,
+            "completed_steps": 3,
+        },
+    )
+    client = TestClient(api_main.create_app())
+
+    response = client.get("/ops")
+
+    assert response.status_code == 200
+    assert 'id="collect-form" data-running="true"' in response.text
+    assert 'id="collect-submit" disabled aria-disabled="true"' in response.text
+    assert "Collect en ejecucion" in response.text
+
+
+def test_web_ops_requires_token_when_configured(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'ops-token.sqlite').as_posix()}")
+    monkeypatch.setenv("ENABLE_ADMIN_ENDPOINTS", "true")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "ops-seed.sqlite"))
+    client = TestClient(api_main.create_app())
+
+    denied = client.get("/ops")
+    wrong = client.post("/ops/login", data={"token": "wrong"})
+    login = client.post("/ops/login", data={"token": "secret-token"}, follow_redirects=False)
+
+    assert denied.status_code == 403
+    assert "Acceso a /ops" in denied.text
+    assert wrong.status_code == 403
+    assert login.status_code == 303
+    assert "promo_admin_token" in login.headers.get("set-cookie", "")
+
+
+def test_web_ops_works_with_cookie_or_query_token(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'ops-cookie.sqlite').as_posix()}")
+    monkeypatch.setenv("ENABLE_ADMIN_ENDPOINTS", "true")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "ops-cookie-seed.sqlite"))
+    client = TestClient(api_main.create_app())
+
+    query_login = client.get("/ops", params={"token": "secret-token"})
+    cookie_login = client.get("/ops", cookies={"promo_admin_token": "secret-token"})
+
+    assert query_login.status_code == 200
+    assert "Collect y audit desde navegador" in query_login.text
+    assert "promo_admin_token" in query_login.headers.get("set-cookie", "")
+    assert cookie_login.status_code == 200
+    assert "Collect y audit desde navegador" in cookie_login.text
+
+
+def test_public_web_views_do_not_require_admin_token(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'public.sqlite').as_posix()}")
+    monkeypatch.setenv("ENABLE_ADMIN_ENDPOINTS", "true")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    import api.main as api_main
+
+    monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "public-seed.sqlite"))
+    client = TestClient(api_main.create_app())
+
+    assert client.get("/").status_code == 200
+    assert client.get("/search", params={"q": "super"}).status_code == 200
+    assert client.get("/fuel").status_code == 200
+    assert client.get("/promotions-ui").status_code == 200
+    assert client.get("/audit-ui").status_code == 200
+
+
+def test_web_ops_enables_collect_form_after_done_or_error(monkeypatch, tmp_path: Path) -> None:
+    _build_client(monkeypatch, tmp_path)
+    import api.main as api_main
+
+    def _status(status: str) -> dict[str, object]:
+        return {
+            "status": status,
+            "started_at": "2026-04-20T12:00:00+00:00",
+            "finished_at": "2026-04-20T12:10:00+00:00",
+            "last_error": "boom" if status == "error" else None,
+            "last_result": {"promotions_total": 1} if status == "done" else None,
+            "month": "2026-04",
+            "bank": None,
+            "progress": 100 if status == "done" else 70,
+            "current_step": "Collect finalizado" if status == "done" else "Collect con error",
+            "current_bank": None,
+            "total_steps": 7,
+            "completed_steps": 7 if status == "done" else 4,
+        }
+
+    client = TestClient(api_main.create_app())
+    monkeypatch.setattr(api_main, "get_collect_job_status", lambda: _status("done"))
+    done = client.get("/ops")
+    monkeypatch.setattr(api_main, "get_collect_job_status", lambda: _status("error"))
+    error = client.get("/ops")
+
+    assert 'id="collect-form" data-running="false"' in done.text
+    assert 'id="collect-submit" disabled' not in done.text
+    assert "Iniciar collect" in done.text
+    assert 'id="collect-form" data-running="false"' in error.text
+    assert 'id="collect-submit" disabled' not in error.text
+
+
+def test_web_ops_polling_only_fetches_status_without_post_or_reload() -> None:
+    template = Path("D:/Bank-scrapper/src/web/templates/ops.html").read_text(encoding="utf-8")
+
+    assert 'fetch("/admin/collect/status")' in template
+    assert "window.location.reload" not in template
+    assert 'fetch("/ops/collect"' not in template
 
 
 def test_web_ops_handles_invalid_input(monkeypatch, tmp_path: Path) -> None:

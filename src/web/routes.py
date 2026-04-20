@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from secrets import compare_digest
 from typing import Any, Callable
 
 from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -38,6 +39,7 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 RECENT_SEARCH_COOKIE = "promo_recent_queries"
+ADMIN_TOKEN_COOKIE = "promo_admin_token"
 
 
 def register_web_routes(
@@ -254,8 +256,11 @@ def register_web_routes(
         )
 
     @app.get("/ops", response_class=HTMLResponse)
-    def ops_ui(request: Request, month: str | None = None) -> HTMLResponse:
-        return templates.TemplateResponse(
+    def ops_ui(request: Request, month: str | None = None, token: str = "") -> HTMLResponse:
+        access_response = _ops_access_response(request, token=token)
+        if access_response is not None:
+            return access_response
+        response = templates.TemplateResponse(
             request,
             "ops.html",
             {
@@ -270,6 +275,21 @@ def register_web_routes(
                 "collect_status": get_collect_job_status(),
             },
         )
+        if token and _token_matches(get_settings().admin_token, token):
+            response.set_cookie(ADMIN_TOKEN_COOKIE, token, max_age=60 * 60 * 24 * 30, httponly=True, samesite="lax")
+        return response
+
+    @app.post("/ops/login", response_class=HTMLResponse)
+    def ops_login(request: Request, token: str = Form("")):
+        settings = get_settings()
+        if not settings.enable_admin_endpoints:
+            return _ops_login_response(request, "Las operaciones web estan deshabilitadas en este entorno.", status_code=403)
+        if settings.admin_token and not _token_matches(settings.admin_token, token):
+            return _ops_login_response(request, "Token invalido.", status_code=403)
+        response = RedirectResponse(url="/ops", status_code=303)
+        if settings.admin_token:
+            response.set_cookie(ADMIN_TOKEN_COOKIE, token, max_age=60 * 60 * 24 * 30, httponly=True, samesite="lax")
+        return response
 
     @app.post("/ops/collect", response_class=HTMLResponse)
     def ops_collect(
@@ -278,6 +298,9 @@ def register_web_routes(
         month: str = Form(""),
         bank: str = Form(""),
     ) -> HTMLResponse:
+        access_response = _ops_access_response(request)
+        if access_response is not None:
+            return access_response
         context = {
             "title": "Operación",
             "active_nav": "ops",
@@ -323,6 +346,9 @@ def register_web_routes(
         bank: str = Form(""),
         query: str = Form(""),
     ) -> HTMLResponse:
+        access_response = _ops_access_response(request)
+        if access_response is not None:
+            return access_response
         context = {
             "title": "Operación",
             "active_nav": "ops",
@@ -362,3 +388,31 @@ def _bank_label(bank_key: str) -> str:
     if bank_key == "bnf":
         return "BNF"
     return bank_key.title()
+
+
+def _ops_access_response(request: Request, *, token: str = "") -> HTMLResponse | None:
+    settings = get_settings()
+    if not settings.enable_admin_endpoints:
+        return _ops_login_response(request, "Las operaciones web estan deshabilitadas en este entorno.", status_code=403)
+    if not settings.admin_token:
+        return None
+    if _token_matches(settings.admin_token, token or request.cookies.get(ADMIN_TOKEN_COOKIE, "")):
+        return None
+    return _ops_login_response(request, "", status_code=403)
+
+
+def _ops_login_response(request: Request, error_message: str, *, status_code: int = 200) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "ops_login.html",
+        {
+            "title": "Acceso operaciones",
+            "active_nav": "ops",
+            "error_message": error_message,
+        },
+        status_code=status_code,
+    )
+
+
+def _token_matches(expected: str, provided: str | None) -> bool:
+    return bool(provided) and compare_digest(provided, expected)

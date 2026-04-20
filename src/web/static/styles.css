@@ -544,6 +544,10 @@ td {
   background: var(--soft);
 }
 
+.ops-login-panel {
+  max-width: 620px;
+}
+
 .hidden {
   display: none !important;
 }

@@ -17,6 +17,7 @@ def test_settings_use_local_defaults_when_env_missing(monkeypatch) -> None:
         "LOG_LEVEL",
         "API_CORS_ORIGINS",
         "ENABLE_ADMIN_ENDPOINTS",
+        "ADMIN_TOKEN",
     ]:
         monkeypatch.delenv(key, raising=False)
     reset_settings_cache()
@@ -27,6 +28,18 @@ def test_settings_use_local_defaults_when_env_missing(monkeypatch) -> None:
     assert settings.database_url.startswith("sqlite:///")
     assert settings.api_host == "127.0.0.1"
     assert settings.api_port == 8000
+    assert settings.admin_token == ""
+
+
+def test_settings_reads_admin_token(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'catalog.sqlite').as_posix()}")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-token")
+    reset_settings_cache()
+
+    settings = get_settings()
+
+    assert settings.admin_token == "secret-token"
 
 
 def test_settings_require_database_url_in_production(monkeypatch, tmp_path: Path) -> None:

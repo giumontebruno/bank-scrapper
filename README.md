@@ -30,6 +30,7 @@ Variables principales:
 - `LOG_LEVEL`: `INFO`, `DEBUG`, etc.
 - `API_CORS_ORIGINS`: lista separada por coma o `*`
 - `ENABLE_ADMIN_ENDPOINTS`: `true/false`
+- `ADMIN_TOKEN`: token compartido para proteger `/ops` y endpoints `/admin/*`
 
 Ejemplo local:
 
@@ -41,6 +42,7 @@ API_PORT=8000
 LOG_LEVEL=INFO
 API_CORS_ORIGINS=*
 ENABLE_ADMIN_ENDPOINTS=true
+ADMIN_TOKEN=dev-secret
 ```
 
 Ejemplo online con PostgreSQL:
@@ -52,7 +54,8 @@ API_HOST=0.0.0.0
 API_PORT=8000
 LOG_LEVEL=INFO
 API_CORS_ORIGINS=https://tu-frontend.com
-ENABLE_ADMIN_ENDPOINTS=false
+ENABLE_ADMIN_ENDPOINTS=true
+ADMIN_TOKEN=un-token-largo-y-privado
 ```
 
 ## Fuentes bancarias
@@ -257,9 +260,9 @@ Endpoints:
 Ejemplos de admin minimo:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/admin/collect -H "Content-Type: application/json" -d "{\"month\":\"2026-04\"}"
-curl http://127.0.0.1:8000/admin/collect/status
-curl -X POST http://127.0.0.1:8000/admin/audit -H "Content-Type: application/json" -d "{\"month\":\"2026-04\"}"
+curl -X POST http://127.0.0.1:8000/admin/collect -H "Content-Type: application/json" -H "X-Admin-Token: dev-secret" -d "{\"month\":\"2026-04\"}"
+curl http://127.0.0.1:8000/admin/collect/status -H "X-Admin-Token: dev-secret"
+curl -X POST http://127.0.0.1:8000/admin/audit -H "Content-Type: application/json" -H "X-Admin-Token: dev-secret" -d "{\"month\":\"2026-04\"}"
 ```
 
 `/admin/collect` corre en background y responde rapido con `status=started`, para evitar timeouts de request larga en hosting tipo Render Free.
@@ -277,7 +280,7 @@ El endpoint `GET /admin/collect/status` tambien expone progreso operativo para l
 - `completed_steps` / `total_steps`: avance simple por etapas
 - `last_result.bank_diagnostics`: diagnostico por banco, por ejemplo `ok`, `no_sources_discovered`, `all_blocks_filtered`
 
-Si `ENABLE_ADMIN_ENDPOINTS=false`, esos endpoints devuelven `403`. Es la compuerta minima antes de agregar autenticacion real.
+Si `ENABLE_ADMIN_ENDPOINTS=false`, esos endpoints devuelven `403`. Si `ADMIN_TOKEN` esta configurado, los endpoints admin requieren `X-Admin-Token` o la cookie creada desde `/ops`.
 
 ## Deploy online
 
@@ -287,8 +290,9 @@ Checklist minima para pasar a online:
 2. Configurar `APP_ENV=production`.
 3. Definir `API_CORS_ORIGINS`.
 4. Decidir si `ENABLE_ADMIN_ENDPOINTS` queda `true` o `false`.
-5. Correr `python -m app audit --month 2026-04` o `GET /audit` y verificar `api_readiness`.
-6. Levantar `uvicorn api.main:app`.
+5. Si `ENABLE_ADMIN_ENDPOINTS=true`, definir `ADMIN_TOKEN` con un valor largo y privado.
+6. Correr `python -m app audit --month 2026-04` o `GET /audit` y verificar `api_readiness`.
+7. Levantar `uvicorn api.main:app`.
 
 Todavia no hay autenticacion. La siguiente fase natural despues de esta mini app es endurecer la experiencia web o separarla en un frontend independiente si hiciera falta.
 
@@ -359,6 +363,8 @@ Uso diario recomendado:
    - correr `audit`
    - ver barra de progreso, banco actual, warnings, diagnostico por banco y resumen del ultimo resultado sin salir del navegador
 
+Si `ADMIN_TOKEN` esta configurado, `/ops` muestra un formulario simple de acceso y guarda una cookie segura para ese navegador. En movil tambien podes entrar una vez con `/ops?token=TU_TOKEN` para dejar la cookie configurada.
+
 Hardening web ya incluido:
 
 - validacion de `month` en formato `YYYY-MM`
@@ -371,7 +377,7 @@ Hardening web ya incluido:
 
 Pendientes que no bloquean uso real:
 
-- proteger `/ops` y endpoints admin cuando llegue la fase de auth
+- reemplazar token compartido por usuarios/login si mas adelante hay mas operadores
 - agregar persistencia real de historial de busquedas entre dispositivos
 - seguir puliendo merchants live raros en algunas fuentes
 
