@@ -162,7 +162,29 @@ def test_web_ops_collect_and_audit_forms(monkeypatch, tmp_path: Path) -> None:
     import web.routes as web_routes
     import api.main as api_main
 
-    monkeypatch.setattr(web_routes, "run_collect", lambda repo, month, bank=None: {"month": month, "bank": bank, "fuel_prices": 2, "promotions": {"ueno": 1}, "warnings": []})
+    monkeypatch.setattr(
+        web_routes,
+        "now_month_ref",
+        lambda: "2026-04",
+    )
+    monkeypatch.setattr(
+        api_main,
+        "start_collect_job",
+        lambda background_tasks, month, bank=None: {"status": "started", "month": month, "bank": bank},
+    )
+    monkeypatch.setattr(
+        api_main,
+        "get_collect_job_status",
+        lambda: {
+            "status": "running",
+            "started_at": "2026-04-20T12:00:00+00:00",
+            "finished_at": None,
+            "last_error": None,
+            "last_result": None,
+            "month": "2026-04",
+            "bank": "Ueno",
+        },
+    )
     monkeypatch.setattr(api_main, "get_repository", lambda: _seed_repository(tmp_path / "catalog-second.sqlite"))
     client = TestClient(api_main.create_app())
 
@@ -170,10 +192,35 @@ def test_web_ops_collect_and_audit_forms(monkeypatch, tmp_path: Path) -> None:
     audit = client.post("/ops/audit", data={"month": "2026-04", "bank": "", "query": "que tarjeta me conviene para 95"})
 
     assert collect.status_code == 200
-    assert "Completado en" in collect.text
-    assert "fuel_prices" in collect.text
+    assert "Collect iniciado" in collect.text
+    assert "running" in collect.text
     assert audit.status_code == 200
     assert "Readiness" in audit.text
+
+
+def test_web_ops_shows_collect_error_and_last_result(monkeypatch, tmp_path: Path) -> None:
+    _build_client(monkeypatch, tmp_path)
+    import api.main as api_main
+
+    monkeypatch.setattr(
+        api_main,
+        "get_collect_job_status",
+        lambda: {
+            "status": "error",
+            "started_at": "2026-04-20T12:00:00+00:00",
+            "finished_at": "2026-04-20T12:05:00+00:00",
+            "last_error": "collect failed in background",
+            "last_result": {"month": "2026-04", "fuel_prices": 8, "promotions_total": 55},
+            "month": "2026-04",
+            "bank": "itau",
+        },
+    )
+    client = TestClient(api_main.create_app())
+    response = client.get("/ops")
+
+    assert response.status_code == 200
+    assert "collect failed in background" in response.text
+    assert "promotions_total" in response.text
 
 
 def test_web_ops_handles_invalid_input(monkeypatch, tmp_path: Path) -> None:

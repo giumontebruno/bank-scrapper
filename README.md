@@ -251,14 +251,23 @@ Endpoints:
 - `GET /promotions?month=2026-04&bank=Sudameris&category=combustible`
 - `GET /categories?month=2026-04`
 - `POST /admin/collect`
+- `GET /admin/collect/status`
 - `POST /admin/audit`
 
 Ejemplos de admin minimo:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/admin/collect -H "Content-Type: application/json" -d "{\"month\":\"2026-04\"}"
+curl http://127.0.0.1:8000/admin/collect/status
 curl -X POST http://127.0.0.1:8000/admin/audit -H "Content-Type: application/json" -d "{\"month\":\"2026-04\"}"
 ```
+
+`/admin/collect` corre en background y responde rapido con `status=started`, para evitar timeouts de request larga en hosting tipo Render Free.
+Para saber si termino bien:
+
+- `status=running`: sigue procesando
+- `status=done`: termino y `last_result` trae resumen operativo
+- `status=error`: fallo y `last_error` trae mensaje legible
 
 Si `ENABLE_ADMIN_ENDPOINTS=false`, esos endpoints devuelven `403`. Es la compuerta minima antes de agregar autenticacion real.
 

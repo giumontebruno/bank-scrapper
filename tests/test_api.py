@@ -66,6 +66,7 @@ def test_api_endpoints_return_stable_json(monkeypatch, tmp_path: Path) -> None:
     repository = _seed_repository(tmp_path / "catalog.sqlite")
     import api.main as api_main
 
+    api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
     client = TestClient(api_main.app)
 
@@ -93,10 +94,11 @@ def test_api_endpoints_return_stable_json(monkeypatch, tmp_path: Path) -> None:
     assert "covered_categories" in categories.json()
 
 
-def test_api_admin_collect_and_audit(monkeypatch, tmp_path: Path) -> None:
+def test_admin_collect_starts_in_background_and_updates_status(monkeypatch, tmp_path: Path) -> None:
     repository = _seed_repository(tmp_path / "catalog.sqlite")
     import api.main as api_main
 
+    api_main.reset_collect_job_state()
     monkeypatch.setattr(api_main, "get_repository", lambda: repository)
     monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
     monkeypatch.setattr(
@@ -111,17 +113,120 @@ def test_api_admin_collect_and_audit(monkeypatch, tmp_path: Path) -> None:
             "warnings": [],
         },
     )
-
     client = TestClient(api_main.app)
 
-    collect = client.post("/admin/collect", json={"month": "2026-04", "bank": "ueno"})
-    audit = client.post("/admin/audit", json={"month": "2026-04"})
+    collect = client.post("/admin/collect", json={"month": "2026-04", "bank": "itau"})
+    status = client.get("/admin/collect/status")
 
     assert collect.status_code == 200
-    assert collect.json()["status"] == "ok"
-    assert collect.json()["bank"] == "ueno"
-    assert audit.status_code == 200
-    assert "dataset" in audit.json()
+    assert collect.json() == {"status": "started", "month": "2026-04", "bank": "itau"}
+    assert status.status_code == 200
+    assert status.json()["status"] in {"running", "done"}
+    assert status.json()["month"] == "2026-04"
+    assert status.json()["bank"] == "itau"
+    if status.json()["status"] == "done":
+        assert status.json()["finished_at"] is not None
+        assert status.json()["last_result"]["promotions_total"] == 1
+
+
+def test_admin_collect_returns_400_when_month_missing(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    client = TestClient(api_main.app)
+
+    response = client.post("/admin/collect", json={})
+
+    assert response.status_code == 400
+
+
+def test_admin_collect_returns_400_when_bank_invalid(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    client = TestClient(api_main.app)
+
+    response = client.post("/admin/collect", json={"month": "2026-04", "bank": "banco-xyz"})
+
+    assert response.status_code == 400
+
+
+def test_admin_collect_returns_409_when_already_running(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    api_main._collect_job_state.try_start(month="2026-04", bank="ueno")
+
+    client = TestClient(api_main.app)
+    response = client.post("/admin/collect", json={"month": "2026-04", "bank": "itau"})
+
+    assert response.status_code == 409
+
+
+def test_admin_collect_persists_error_when_background_fails(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+
+    def _boom(repo, month, bank=None):
+        raise RuntimeError("collect failed in background")
+
+    monkeypatch.setattr(api_main, "run_collect", _boom)
+    client = TestClient(api_main.app)
+
+    collect = client.post("/admin/collect", json={"month": "2026-04"})
+    status = client.get("/admin/collect/status")
+
+    assert collect.status_code == 200
+    assert status.status_code == 200
+    assert status.json()["status"] == "error"
+    assert "collect failed in background" in (status.json()["last_error"] or "")
+    assert status.json()["finished_at"] is not None
+
+
+def test_admin_collect_success_after_previous_error(monkeypatch, tmp_path: Path) -> None:
+    repository = _seed_repository(tmp_path / "catalog.sqlite")
+    import api.main as api_main
+
+    api_main.reset_collect_job_state()
+    monkeypatch.setattr(api_main, "get_repository", lambda: repository)
+    monkeypatch.setattr(api_main, "_ensure_admin_enabled", lambda settings: None)
+    client = TestClient(api_main.app)
+
+    def _boom(repo, month, bank=None):
+        raise RuntimeError("first collect failed")
+
+    monkeypatch.setattr(api_main, "run_collect", _boom)
+    fail = client.post("/admin/collect", json={"month": "2026-04"})
+    assert fail.status_code == 200
+    failed_status = client.get("/admin/collect/status").json()
+    assert failed_status["status"] == "error"
+
+    monkeypatch.setattr(
+        api_main,
+        "run_collect",
+        lambda repo, month, bank=None: {"month": month, "bank": bank, "fuel_prices": 1, "promotions": 2, "warnings": []},
+    )
+    ok = client.post("/admin/collect", json={"month": "2026-04", "bank": "ueno"})
+    done_status = client.get("/admin/collect/status").json()
+
+    assert ok.status_code == 200
+    assert done_status["status"] == "done"
+    assert done_status["last_error"] is None
+    assert done_status["finished_at"] is not None
+    assert done_status["last_result"]["promotions_total"] == 2
 
 
 def test_api_respects_database_url_from_env(monkeypatch, tmp_path: Path) -> None:

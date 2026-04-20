@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
-from fastapi import FastAPI, Form, Request
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from core.collect import run_collect
 from core.config import get_settings
 from query.audit import build_audit_report
 from query.engine import QueryEngine
@@ -41,7 +40,13 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 RECENT_SEARCH_COOKIE = "promo_recent_queries"
 
 
-def register_web_routes(app: FastAPI, *, get_repository: Callable[[], PromotionRepository]) -> None:
+def register_web_routes(
+    app: FastAPI,
+    *,
+    get_repository: Callable[[], PromotionRepository],
+    start_collect_job: Callable[..., dict[str, object]],
+    get_collect_job_status: Callable[[], dict[str, object]],
+) -> None:
     app.mount("/web/static", StaticFiles(directory=str(STATIC_DIR)), name="web-static")
 
     @app.get("/", response_class=HTMLResponse)
@@ -262,12 +267,14 @@ def register_web_routes(app: FastAPI, *, get_repository: Callable[[], PromotionR
                 "error_message": "",
                 "banks": sorted([_bank_label(key) for key in SCRAPER_REGISTRY]),
                 "admin_enabled": get_settings().enable_admin_endpoints,
+                "collect_status": get_collect_job_status(),
             },
         )
 
     @app.post("/ops/collect", response_class=HTMLResponse)
     def ops_collect(
         request: Request,
+        background_tasks: BackgroundTasks,
         month: str = Form(""),
         bank: str = Form(""),
     ) -> HTMLResponse:
@@ -280,6 +287,7 @@ def register_web_routes(app: FastAPI, *, get_repository: Callable[[], PromotionR
             "error_message": "",
             "banks": sorted([_bank_label(key) for key in SCRAPER_REGISTRY]),
             "admin_enabled": get_settings().enable_admin_endpoints,
+            "collect_status": get_collect_job_status(),
         }
         if not get_settings().enable_admin_endpoints:
             context["error_message"] = "Las operaciones web están deshabilitadas en este entorno."
@@ -287,14 +295,24 @@ def register_web_routes(app: FastAPI, *, get_repository: Callable[[], PromotionR
         try:
             safe_month = validate_month(month)
             safe_bank = validate_bank(bank, set(SCRAPER_REGISTRY) | {"BNF", "Ueno", "Itau", "Sudameris", "Continental"}) if bank else None
-            result, elapsed = timed_call(run_collect, get_repository(), month=safe_month or now_month_ref(), bank=safe_bank)
-            context["collect_result"] = {**result, "elapsed_seconds": elapsed}
+            result = start_collect_job(background_tasks, month=safe_month or now_month_ref(), bank=safe_bank)
+            context["collect_result"] = result
+            context["collect_status"] = get_collect_job_status()
             context["default_month"] = safe_month or now_month_ref()
         except ValueError as exc:
             context["error_message"] = str(exc)
             return templates.TemplateResponse(request, "ops.html", context, status_code=400)
+        except RuntimeError as exc:
+            context["error_message"] = str(exc)
+            context["collect_status"] = get_collect_job_status()
+            return templates.TemplateResponse(request, "ops.html", context, status_code=409)
+        except HTTPException as exc:
+            context["error_message"] = str(exc.detail)
+            context["collect_status"] = get_collect_job_status()
+            return templates.TemplateResponse(request, "ops.html", context, status_code=exc.status_code)
         except Exception:
             context["error_message"] = "No se pudo ejecutar collect en este momento."
+            context["collect_status"] = get_collect_job_status()
             return templates.TemplateResponse(request, "ops.html", context, status_code=500)
         return templates.TemplateResponse(request, "ops.html", context)
 
@@ -314,6 +332,7 @@ def register_web_routes(app: FastAPI, *, get_repository: Callable[[], PromotionR
             "error_message": "",
             "banks": sorted([_bank_label(key) for key in SCRAPER_REGISTRY]),
             "admin_enabled": get_settings().enable_admin_endpoints,
+            "collect_status": get_collect_job_status(),
         }
         if not get_settings().enable_admin_endpoints:
             context["error_message"] = "Las operaciones web están deshabilitadas en este entorno."
