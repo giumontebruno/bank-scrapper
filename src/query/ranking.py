@@ -5,8 +5,8 @@ from utils.text import normalize_text
 
 PROMO_TYPE_PRIORITY = {
     "bank_promo": 4,
-    "generic_benefit": 3,
-    "voucher": 2,
+    "generic_benefit": 2,
+    "voucher": 1,
     "loyalty_reward": 1,
     "catalog_fallback": 0,
 }
@@ -235,8 +235,22 @@ def _has_clear_merchant(promotion: Promotion) -> bool:
         "conoce mas",
         "promociones",
         "beneficios",
+        "cuotas",
+        "hoteles",
+        "bicicleterias",
+        "fin de semana",
+        "i m",
+        "n caja",
     }
-    return normalized not in generic_terms and "hasta" not in normalized and "promo" not in normalized
+    noisy_fragments = [
+        "ser socio",
+        "tiene sus beneficios",
+        "rubros favoritos",
+        "medios de pago",
+    ]
+    return normalized not in generic_terms and "hasta" not in normalized and "promo" not in normalized and not any(
+        fragment in normalized for fragment in noisy_fragments
+    )
 
 
 def _has_clear_benefit(promotion: Promotion) -> bool:

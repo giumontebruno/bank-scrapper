@@ -1,0 +1,60 @@
+name: Daily collect and audit
+
+on:
+  schedule:
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to collect in YYYY-MM format. Defaults to current UTC month."
+        required: false
+        type: string
+
+jobs:
+  collect-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Resolve month
+        id: vars
+        run: |
+          if [ -n "${{ inputs.month }}" ]; then
+            echo "month=${{ inputs.month }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Start collect
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/collect" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" \
+            -d "{\"month\":\"${{ steps.vars.outputs.month }}\"}"
+
+      - name: Wait for collect completion
+        run: |
+          for attempt in $(seq 1 90); do
+            payload=$(curl --fail --show-error --silent \
+              "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/collect/status" \
+              -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}")
+            echo "$payload"
+            status=$(python -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<< "$payload")
+            if [ "$status" = "done" ]; then
+              exit 0
+            fi
+            if [ "$status" = "error" ]; then
+              exit 1
+            fi
+            sleep 20
+          done
+          echo "Collect did not finish in time."
+          exit 1
+
+      - name: Run audit
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/audit" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" \
+            -d "{\"month\":\"${{ steps.vars.outputs.month }}\"}"

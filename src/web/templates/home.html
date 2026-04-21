@@ -13,10 +13,10 @@
         <input id="q" name="q" type="text" placeholder="Ej: quiero comprar en super, que tarjeta me conviene para 95, necesito clavos" />
         <button type="submit">Buscar</button>
       </form>
-      <div class="quick-actions">
-        <a class="cta-link" href="/fuel">Ver combustibles</a>
-        <a class="cta-link" href="/promotions-ui?month={{ default_month }}">Explorar promociones</a>
-        <a class="cta-link" href="/audit-ui?month={{ default_month }}">Revisar estado</a>
+      <div class="quick-actions quick-actions-hero">
+        <a class="cta-link" href="/fuel"><span>95/97</span> Ver combustibles</a>
+        <a class="cta-link" href="/promotions-ui?month={{ default_month }}"><span>Cards</span> Explorar promociones</a>
+        <a class="cta-link" href="/audit-ui?month={{ default_month }}"><span>QA</span> Revisar estado</a>
       </div>
     </div>
     <aside class="hero-panel">
@@ -41,6 +41,29 @@
         <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
       {% endfor %}
     </div>
+  </section>
+
+  <section class="app-shortcuts">
+    <a class="shortcut-card" href="/search?q=quiero+comprar+en+super">
+      <span>Buscar promos</span>
+      <strong>ConsultÃ¡ por necesidad</strong>
+      <small>Super, farmacia, ropa, comida o combustible.</small>
+    </a>
+    <a class="shortcut-card" href="/fuel">
+      <span>Combustibles</span>
+      <strong>Tablero 95 / 97</strong>
+      <small>Precio base y recomendaciÃ³n si hay promo.</small>
+    </a>
+    <a class="shortcut-card" href="/promotions-ui?month={{ default_month }}">
+      <span>Explorar</span>
+      <strong>Promociones cargadas</strong>
+      <small>FiltrÃ¡ por banco, categorÃ­a, tipo y calidad.</small>
+    </a>
+    <a class="shortcut-card" href="/ops">
+      <span>OperaciÃ³n</span>
+      <strong>Collect y audit</strong>
+      <small>Protegido por token admin.</small>
+    </a>
   </section>
 
   {% if recent_queries %}

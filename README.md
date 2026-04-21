@@ -381,6 +381,49 @@ Pendientes que no bloquean uso real:
 - agregar persistencia real de historial de busquedas entre dispositivos
 - seguir puliendo merchants live raros en algunas fuentes
 
+## Automatizacion diaria
+
+El repo incluye el workflow `.github/workflows/daily-collect-audit.yml` para GitHub Actions. Corre una vez al dia y tambien se puede disparar manualmente con `workflow_dispatch`.
+
+Flujo automatico:
+
+1. Resuelve el mes actual en formato `YYYY-MM`.
+2. Llama `POST /admin/collect` con `X-Admin-Token`.
+3. Espera el fin de collect consultando `GET /admin/collect/status`.
+4. Si collect termina en `done`, llama `POST /admin/audit`.
+5. Si collect termina en `error` o no finaliza a tiempo, falla el workflow para que quede visible en GitHub Actions.
+
+Secrets necesarios en GitHub:
+
+- `PROMO_QUERY_BASE_URL`: URL publica de la app, por ejemplo `https://tu-app.onrender.com`
+- `ADMIN_TOKEN`: el mismo valor configurado en Render como `ADMIN_TOKEN`
+
+No guardes el token en README ni en codigo. Cargalo solo como secret de GitHub y variable de entorno del hosting.
+
+Para verificar la ultima ejecucion desde la web:
+
+- entrar a `/ops`
+- revisar `status`, `finished_at`, `last_result`, `warnings` y `bank_diagnostics`
+- si hace falta, abrir `/audit-ui` para mirar cobertura y warnings actuales
+
+## Mejoras recientes de UI y resultados
+
+La web mantiene FastAPI + Jinja, pero ahora tiene una capa visual mas pulida:
+
+- home con buscador protagonista, accesos rapidos y tarjetas de accion
+- resultados con badges mas claros, banco destacado y precio final estimado resaltado
+- fuel con recomendacion destacada para 95/97
+- promotions y audit mantienen filtros visibles y mejor lectura responsive
+- ops conserva barra de progreso, diagnostico por banco y resultado compacto
+
+Tambien se reforzo el catalogo para categorias debiles:
+
+- tecnologia: celulares, HP Store, Samsung, Tigo, Personal, Alemania Cell
+- entretenimiento: eventos, teatro, clubes, Mbatovi
+- ferreteria: repuestos, talleres, electricidad, cemento, materiales
+
+El ranking sigue priorizando promos bancarias claras por encima de beneficios genericos, vouchers y fallback de catalogo.
+
 ## Tests
 
 ```bash

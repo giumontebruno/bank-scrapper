@@ -1,9 +1,10 @@
 from datetime import date
 from pathlib import Path
 
+from catalog.service import CatalogService
 from models.promotion import FuelPrice, Promotion
 from query.engine import QueryEngine
-from query.ranking import infer_promo_type, result_quality
+from query.ranking import PROMO_TYPE_PRIORITY, infer_promo_type, result_quality
 from query.repository import PromotionRepository
 
 QUALITY_ORDER = {"fallback": 0, "low": 1, "medium": 2, "high": 3}
@@ -649,3 +650,16 @@ def test_broad_query_prioritizes_actionable_results_over_voucher_and_generic(tmp
     assert response["matches"][0]["merchant"] == "Copetrol"
     assert response["matches"][0]["promo_type"] == "bank_promo"
     assert response["matches"][0]["result_quality_label"] in {"high", "medium"}
+
+
+def test_catalog_covers_weak_category_terms() -> None:
+    catalog = CatalogService()
+
+    assert catalog.infer_category("quiero comprar tecnologia y celulares") == "tecnologia"
+    assert catalog.infer_category("busco eventos o teatro") == "entretenimiento"
+    assert catalog.infer_category("necesito repuestos y tornillos") == "ferreteria"
+
+
+def test_ranking_keeps_bank_promos_above_generic_benefits() -> None:
+    assert PROMO_TYPE_PRIORITY["bank_promo"] > PROMO_TYPE_PRIORITY["generic_benefit"]
+    assert PROMO_TYPE_PRIORITY["generic_benefit"] > PROMO_TYPE_PRIORITY["catalog_fallback"]

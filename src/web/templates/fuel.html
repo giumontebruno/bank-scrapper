@@ -40,6 +40,11 @@
         </div>
         {% if recommendation %}
           <p class="benefit">{{ recommendation.merchant }} · {{ recommendation.bank }}</p>
+          <div class="price-highlight fuel-highlight">
+            <span>Mejor estimado</span>
+            <strong>{% if recommendation.price_final_estimated is not none %}Gs. {{ recommendation.price_final_estimated }}{% else %}Sin promo estimable{% endif %}</strong>
+            <small>{{ recommendation.benefit }}</small>
+          </div>
           <dl class="result-meta compact-meta">
             <div>
               <dt>Beneficio</dt>

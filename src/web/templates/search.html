@@ -72,7 +72,7 @@
         <article class="result-card">
           <div class="result-header">
             <div>
-              <span class="label">{{ item.bank or "Sin banco" }}</span>
+              <span class="bank-pill">{{ item.bank or "Sin banco" }}</span>
               <h2>{{ item.merchant }}</h2>
             </div>
             <span class="badge badge-{{ item.result_quality_label or 'fallback' }}">{{ item.result_quality_label or "fallback" }}</span>
@@ -83,6 +83,15 @@
             <span class="tag">{{ item.promo_type or "catalog_fallback" }}</span>
           </div>
           <p class="benefit">{{ item.benefit }}</p>
+          {% if item.price_final_estimated is not none %}
+            <div class="price-highlight">
+              <span>Final estimado</span>
+              <strong>Gs. {{ item.price_final_estimated }}</strong>
+              {% if item.price_base is not none %}
+                <small>Base Gs. {{ item.price_base }}</small>
+              {% endif %}
+            </div>
+          {% endif %}
           <dl class="result-meta">
             <div>
               <dt>Banco</dt>
