@@ -1,108 +1,157 @@
 {% extends "base.html" %}
 
-{% block content %}
-  <section class="hero">
-    <div class="hero-copy">
-      <span class="eyebrow">Consulta real de promos bancarias</span>
-      <h1>Buscá por necesidad real y encontrá qué banco te conviene hoy.</h1>
-      <p>
-        Probá supermercado, combustible 95/97, ropa, farmacia, gastronomía, hogar o ferretería desde una sola búsqueda.
-      </p>
-      <p class="freshness-pill">Ultima actualizacion: {{ last_updated }}</p>
-      <form action="/search" method="get" class="search-form search-form-large">
-        <label class="sr-only" for="q">Buscar promociones</label>
-        <input id="q" name="q" type="text" placeholder="Ej: quiero comprar en super, que tarjeta me conviene para 95, necesito clavos" />
-        <button type="submit">Buscar</button>
-      </form>
-      <div class="quick-actions quick-actions-hero">
-        <a class="cta-link" href="/fuel"><span>95/97</span> Ver combustibles</a>
-        <a class="cta-link" href="/promotions-ui?month={{ default_month }}"><span>Cards</span> Explorar promociones</a>
-        <a class="cta-link" href="/audit-ui?month={{ default_month }}"><span>QA</span> Revisar estado</a>
-      </div>
+{% macro promo_feed_card(item) %}
+  <article class="promo-feed-card{% if item.is_featured_candidate %} is-featured{% endif %}{% if item.is_category_only %} is-category-only{% endif %}{% if item.is_generic %} is-generic{% endif %}">
+    <div class="promo-card-top">
+      <span class="bank-pill">{{ item.bank or "Fuente" }}</span>
+      <span class="badge badge-{{ item.offer_quality_label }}">{{ item.offer_quality_label }}</span>
+      {% if item.is_featured_candidate %}
+        <span class="badge badge-featured">Destacada</span>
+      {% endif %}
     </div>
-    <aside class="hero-panel">
-      <div class="stat-card">
-        <strong>Uso diario rápido</strong>
-        <p>Entrá, escribí la necesidad y compará merchant, banco, beneficio, vigencia y precio final estimado cuando aplique.</p>
+    <h3>{{ item.merchant_normalized or item.category or "Oferta por rubro" }}</h3>
+    <p class="promo-benefit">{{ item.benefit_summary }}</p>
+    <div class="benefit-metrics">
+      {% if item.discount_percent is not none %}
+        <span><strong>{{ item.discount_percent|int }}%</strong> desc.</span>
+      {% endif %}
+      {% if item.cashback_percent is not none %}
+        <span><strong>{{ item.cashback_percent|int }}%</strong> reintegro</span>
+      {% endif %}
+      {% if item.installments is not none %}
+        <span><strong>{{ item.installments }}</strong> cuotas</span>
+      {% endif %}
+      {% if item.is_category_only %}
+        <span class="soft-metric">Por rubro</span>
+      {% endif %}
+    </div>
+    <div class="tag-row">
+      <span class="tag">{{ item.category }}</span>
+      <span class="tag">{{ item.promo_type }}</span>
+      {% if item.source_type %}
+        <span class="tag">{{ item.source_type }}</span>
+      {% endif %}
+      {% if item.valid_until %}
+        <span class="tag">Hasta {{ item.valid_until }}</span>
+      {% endif %}
+    </div>
+    <p class="explanation">{{ item.benefit_type }}{% if item.channels %} · {{ item.channels | join(", ") }}{% endif %}</p>
+    {% if item.source_url %}
+      <a class="source-link" href="{{ item.source_url }}" target="_blank" rel="noreferrer">Ver fuente</a>
+    {% endif %}
+  </article>
+{% endmacro %}
+
+{% macro offer_rail(title, subtitle, items, anchor) %}
+  {% if items %}
+    <section class="panel offer-rail-section" id="{{ anchor }}">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Promos de hoy</span>
+          <h2>{{ title }}</h2>
+        </div>
+        <p>{{ subtitle }}</p>
       </div>
-      <div class="stat-card">
-        <strong>Operación desde web</strong>
-        <p>Ya podés correr collect y audit desde navegador sin entrar por consola.</p>
+      <div class="offer-rail">
+        {% for item in items %}
+          {{ promo_feed_card(item) }}
+        {% endfor %}
       </div>
-    </aside>
+    </section>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+  <section class="today-hero">
+    <div>
+      <span class="eyebrow">Promociones del dia</span>
+      <h1>Promos de hoy</h1>
+      <p class="subtle">Una portada diaria para ver rapido que banco, comercio y rubro conviene mirar antes de gastar.</p>
+      <p class="freshness-pill">Ultima actualizacion: {{ last_updated }}</p>
+    </div>
+    <form action="/search" method="get" class="search-form compact-search">
+      <label class="sr-only" for="q">Buscar promociones</label>
+      <input id="q" name="q" type="text" placeholder="Buscar algo puntual: super, farmacia, 95, ropa..." />
+      <button type="submit">Buscar</button>
+    </form>
   </section>
 
-  <section class="panel">
+  <section class="category-strip panel">
     <div class="section-heading">
-      <h2>Búsquedas rápidas</h2>
-      <p>Un clic para empezar.</p>
+      <h2>Categorias con promos</h2>
+      <p>{{ daily_feed.total }} promociones utiles detectadas para mostrar.</p>
     </div>
-    <div class="chip-grid">
-      {% for item in example_queries %}
-        <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+    <div class="category-scroll">
+      {% for category in daily_feed.categories %}
+        <a class="category-pill" href="#cat-{{ category.key }}">
+          <strong>{{ category.label }}</strong>
+          <span>{{ category.count }}</span>
+        </a>
       {% endfor %}
     </div>
   </section>
 
-  <section class="app-shortcuts">
-    <a class="shortcut-card" href="/search?q=quiero+comprar+en+super">
-      <span>Buscar promos</span>
-      <strong>ConsultÃ¡ por necesidad</strong>
-      <small>Super, farmacia, ropa, comida o combustible.</small>
-    </a>
-    <a class="shortcut-card" href="/fuel">
-      <span>Combustibles</span>
-      <strong>Tablero 95 / 97</strong>
-      <small>Precio base y recomendaciÃ³n si hay promo.</small>
-    </a>
-    <a class="shortcut-card" href="/promotions-ui?month={{ default_month }}">
-      <span>Explorar</span>
-      <strong>Promociones cargadas</strong>
-      <small>FiltrÃ¡ por banco, categorÃ­a, tipo y calidad.</small>
-    </a>
-    <a class="shortcut-card" href="/ops">
-      <span>OperaciÃ³n</span>
-      <strong>Collect y audit</strong>
-      <small>Protegido por token admin.</small>
-    </a>
-  </section>
-
-  {% if recent_queries %}
+  {% if daily_feed.featured_offers %}
     <section class="panel">
       <div class="section-heading">
-        <h2>Últimas búsquedas</h2>
-        <p>Retomá rápido lo que consultaste hace poco en este navegador.</p>
+        <h2>Destacadas</h2>
+        <p>Promos con merchant claro, beneficio concreto y mejor calidad de resultado.</p>
       </div>
-      <div class="chip-grid">
-        {% for item in recent_queries %}
-          <a class="chip-link" href="/search?q={{ item | replace(' ', '+') }}">{{ item }}</a>
+      <div class="promo-feed-grid featured-grid">
+        {% for item in daily_feed.featured_offers %}
+          {{ promo_feed_card(item) }}
         {% endfor %}
       </div>
     </section>
   {% endif %}
 
-  <section class="grid-two">
-    <article class="panel">
-      <div class="section-heading">
-        <h2>Qué podés resolver</h2>
-      </div>
-      <ul class="feature-list">
-        <li>Mejor tarjeta para 95 o 97</li>
-        <li>Promos por banco, merchant, categoría y calidad</li>
-        <li>Exploración de promociones persistidas</li>
-        <li>Salud del dataset y recolección desde web</li>
-      </ul>
-    </article>
-    <article class="panel">
-      <div class="section-heading">
-        <h2>Flujo recomendado</h2>
-      </div>
-      <ul class="feature-list">
-        <li>Buscar primero por necesidad real</li>
-        <li>Filtrar si hay muchos resultados</li>
-        <li>Usar Estado para revisar warnings</li>
-        <li>Usar Operación para collect y audit</li>
-      </ul>
-    </article>
+  <section class="daily-dashboard">
+    <a class="dashboard-tile" href="#top-bank">
+      <span>Que banco conviene hoy</span>
+      <strong>{{ daily_feed.top_bank_offers|length }}</strong>
+    </a>
+    <a class="dashboard-tile" href="#top-discounts">
+      <span>Top descuentos</span>
+      <strong>{{ daily_feed.top_discount_offers|length }}</strong>
+    </a>
+    <a class="dashboard-tile" href="#top-cashback">
+      <span>Top reintegros</span>
+      <strong>{{ daily_feed.top_cashback_offers|length }}</strong>
+    </a>
+    <a class="dashboard-tile" href="#top-installments">
+      <span>Top cuotas</span>
+      <strong>{{ daily_feed.top_installment_offers|length }}</strong>
+    </a>
   </section>
+
+  {{ offer_rail("Combustible hoy", "Ofertas de estaciones y marcas con potencial de cruzar precio base 95/97.", daily_feed.fuel_offers_today, "fuel-today") }}
+  {{ offer_rail("Que banco conviene hoy", "Una seleccion compacta de beneficios accionables con mejor calidad.", daily_feed.top_bank_offers, "top-bank") }}
+  {{ offer_rail("Top descuentos", "Promos con porcentaje de descuento detectado y merchant o rubro util.", daily_feed.top_discount_offers, "top-discounts") }}
+  {{ offer_rail("Top reintegros", "Cashbacks y reintegros ordenados para decidir rapido.", daily_feed.top_cashback_offers, "top-cashback") }}
+  {{ offer_rail("Top cuotas", "Ofertas donde el beneficio principal pasa por financiacion.", daily_feed.top_installment_offers, "top-installments") }}
+
+  {% for category in daily_feed.categories %}
+    <section class="daily-category" id="cat-{{ category.key }}">
+      <div class="section-heading category-heading">
+        <div>
+          <span class="eyebrow">{{ category.count }} promos</span>
+          <h2>{{ category.label }}</h2>
+        </div>
+        <a class="source-link" href="/promotions-ui?category={{ category.key }}">Ver todas</a>
+      </div>
+      <div class="promo-feed-grid">
+        {% for item in daily_feed.grouped[category.key] %}
+          {{ promo_feed_card(item) }}
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
+
+  {% if not daily_feed.featured_offers %}
+    <section class="empty-state panel">
+      <h2>No hay promociones cargadas todavia</h2>
+      <p>Cuando collect termine, esta pantalla se convierte en el feed de promociones del dia.</p>
+      <a class="cta-link" href="/ops">Ir a operacion</a>
+    </section>
+  {% endif %}
 {% endblock %}

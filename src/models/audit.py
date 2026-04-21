@@ -54,6 +54,11 @@ class DatasetAudit(BaseModel):
     merchant_clear_count: int = 0
     category_only_count: int = 0
     average_quality_score: float = 0.0
+    canonical_offers_total: int = 0
+    duplicated_promotions_consolidated: int = 0
+    featured_candidate_count: int = 0
+    generic_offer_count: int = 0
+    canonical_category_only_count: int = 0
     suspicious_merchants: dict[str, int] = Field(default_factory=dict)
     banks: list[BankHealth] = Field(default_factory=list)
     fuel: FuelHealth = Field(default_factory=FuelHealth)

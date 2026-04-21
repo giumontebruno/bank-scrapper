@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from core.config import get_settings
+from offers import build_offer_catalog, build_today_feed, load_supplemental_offer_sources
 from query.audit import build_audit_report
 from query.engine import QueryEngine
 from query.repository import PromotionRepository
@@ -56,6 +57,16 @@ def register_web_routes(
     def home(request: Request) -> HTMLResponse:
         repository = get_repository()
         recent_queries = normalize_recent_queries(request.cookies.get(RECENT_SEARCH_COOKIE))
+        month_ref = now_month_ref()
+        promotions = repository.list_promotions(month_ref=month_ref, limit=300)
+        if not promotions:
+            promotions = repository.list_promotions(limit=300)
+        feed = build_today_feed(
+            build_offer_catalog(
+                promotions,
+                supplemental_sources=load_supplemental_offer_sources(),
+            )
+        )
         return templates.TemplateResponse(
             request,
             "home.html",
@@ -64,8 +75,9 @@ def register_web_routes(
                 "active_nav": "home",
                 "example_queries": EXAMPLE_QUERIES,
                 "recent_queries": recent_queries,
-                "default_month": now_month_ref(),
+                "default_month": month_ref,
                 "last_updated": latest_update_label(repository.list_fuel_prices()),
+                "daily_feed": feed,
             },
         )
 

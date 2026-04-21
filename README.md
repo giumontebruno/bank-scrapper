@@ -1,10 +1,11 @@
 # promo-query-py
 
-Motor consultable de promociones bancarias y precios de combustibles para Paraguay.
+Vitrina diaria de promociones bancarias y precios de combustibles para Paraguay.
 
 ## Que hace hoy
 
-- Consulta por intencion de compra sin LLM.
+- Muestra una home tipo feed de `Promos de hoy`, agrupadas por categoria/rubro.
+- Consulta por intencion de compra sin LLM cuando queres buscar algo puntual.
 - Recolecta precios base de nafta 95 y 97 desde `combustibles.com.py`.
 - Recolecta promociones de `Ueno`, `Itau`, `Sudameris`, `Continental` y `BNF` desde HTML y PDFs oficiales configurados.
 - Normaliza merchants y brands para cruzar promociones con combustible y rubros.
@@ -61,6 +62,16 @@ ADMIN_TOKEN=un-token-largo-y-privado
 ## Fuentes bancarias
 
 Las semillas viven en `config/bank_sources.yaml`. Ahi se configuran landings, paginas detalle, PDFs y flags basicos por banco para evitar URLs hardcodeadas dentro del scraper.
+
+## Fuentes complementarias V1
+
+Ademas de promos bancarias scrapeadas, el catalogo canonico ya acepta fuentes simples para sumar senales utiles sin reescribir scrapers:
+
+- `manual_source`: carga manual o semimanual verificada.
+- `merchant_campaign`: campania publicada por un comercio.
+- `social_signal`: senal liviana desde redes u otra fuente social, pensada como contexto de baja confianza hasta verificar.
+
+El archivo local opcional es `config/manual_offers.yaml` y no se trackea en git. Usar `config/manual_offers.example.yaml` como plantilla. Estas fuentes se convierten a `Offer` canonica y entran al feed de `Promos de hoy` con score/calidad, deduplicacion y menor prioridad si son genericas.
 
 ## Como recolectar
 
@@ -309,7 +320,7 @@ No requiere un `NEXT_PUBLIC_API_BASE_URL` separado en esta etapa porque la web y
 
 Vistas disponibles:
 
-- `/` home con buscador y ejemplos rapidos
+- `/` home con feed de `Promos de hoy`, destacados y categorias clickeables
 - `/search?q=...` resultados de query con filtros por banco, categoria, calidad y tipo
 - `/audit-ui` vista resumida de readiness, warnings y cobertura
 - `/fuel` tabla de 95/97 y recomendacion rapida
@@ -318,9 +329,9 @@ Vistas disponibles:
 
 Flujo recomendado de uso:
 
-1. Entrar a la home.
-2. Buscar por texto libre: `quiero comprar en super`, `que tarjeta me conviene para 95`, `quiero salir a comer`.
-3. Ajustar filtros si hace falta.
+1. Entrar a la home y revisar `Promos de hoy`.
+2. Navegar por categoria: supermercados, combustible, gastronomia, salud, hogar, etc.
+3. Usar busqueda solo para algo puntual: `quiero comprar en super`, `que tarjeta me conviene para 95`, `quiero salir a comer`.
 4. Revisar `/fuel` o `/promotions-ui` si queres explorar por tabla/listado.
 5. Revisar `/audit-ui` antes de una exposicion publica o si algo se ve raro.
 6. Usar `/ops` para correr `collect` o `audit` sin consola.
@@ -450,6 +461,24 @@ Tambien se reforzo el catalogo para categorias debiles:
 - ferreteria: repuestos, talleres, electricidad, cemento, materiales
 
 El ranking sigue priorizando promos bancarias claras por encima de beneficios genericos, vouchers y fallback de catalogo.
+
+## Catalogo canonico de ofertas
+
+La base evoluciono de `scrapers -> promociones crudas -> web` a una capa intermedia:
+
+```text
+ingesta -> promociones normalizadas -> catalogo canonico de ofertas -> feed del dia -> web/api
+```
+
+La entidad canonica `Offer` vive en `src/offers/` y consolida lo que viene de `Promotion`:
+
+- banco, merchant, categoria y fuente
+- beneficio normalizado: descuento, reintegro, cuotas, mixto o desconocido
+- vigencia, canales, topes y minimos cuando existen
+- calidad, genericidad, category-only y candidatura a destacado
+- deduplicacion logica por banco + merchant + categoria + beneficio
+
+El feed `Promos de hoy` se construye desde esas ofertas canonicas, no desde texto bruto scrapeado. Esto deja preparado el proyecto para sumar despues fuentes como `merchant_campaign`, `social_signal` o `manual_source` sin forzar los scrapers bancarios.
 
 ## Checklist final corto
 

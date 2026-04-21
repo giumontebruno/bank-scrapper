@@ -101,13 +101,18 @@ def test_web_home_renders_search_examples_and_recent_queries(monkeypatch, tmp_pa
 
     assert response.status_code == 200
     assert "Promo Query Paraguay" in response.text
-    assert "quiero comprar en super" in response.text
-    assert "Últimas búsquedas" in response.text
-    assert "shortcut-card" in response.text
-    assert "Tablero 95 / 97" in response.text
+    assert "Promos de hoy" in response.text
+    assert "Categorias con promos" in response.text
+    assert "Destacadas" in response.text
+    assert "Combustible hoy" in response.text
+    assert "Que banco conviene hoy" in response.text
+    assert "Top reintegros" in response.text
+    assert "promo-feed-card" in response.text
+    assert "benefit-metrics" in response.text
+    assert "Biggie" in response.text
+    assert "Supermercados" in response.text
     assert "Ultima actualizacion" in response.text
     assert 'name="viewport"' in response.text
-
 
 def test_web_search_renders_results_and_sets_recent_cookie(monkeypatch, tmp_path: Path) -> None:
     client = _build_client(monkeypatch, tmp_path)
@@ -409,3 +414,5 @@ def test_web_styles_include_mobile_breakpoints() -> None:
     assert ".app-shortcuts" in css
     assert ".price-highlight" in css
     assert ".freshness-pill" in css
+    assert ".offer-rail" in css
+    assert ".benefit-metrics" in css

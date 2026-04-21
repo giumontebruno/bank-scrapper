@@ -1,0 +1,36 @@
+offers:
+  - id: tienda-demo-abril
+    source_type: merchant_campaign
+    merchant: Tienda Demo
+    merchant_normalized: Tienda Demo
+    category: retail
+    benefit_summary: 20% descuento en seleccionados
+    discount_percent: 20
+    valid_from: "2026-04-01"
+    valid_until: "2026-04-30"
+    channels:
+      - ecommerce
+    source_url: https://example.com/campania
+    confidence_score: 0.75
+
+  - id: carga-manual-super
+    source_type: manual_source
+    bank: Banco Demo
+    merchant: Super Demo
+    merchant_normalized: Super Demo
+    category: supermercados
+    cashback_percent: 15
+    benefit_summary: 15% reintegro los fines de semana
+    valid_days:
+      - sabado
+      - domingo
+    confidence_score: 0.8
+
+  - id: senal-social-gastro
+    source_type: social_signal
+    merchant: Restaurante Demo
+    merchant_normalized: Restaurante Demo
+    category: gastronomia
+    benefit_summary: Promo vista en redes, pendiente de verificar
+    source_url: https://example.com/post
+    confidence_score: 0.35

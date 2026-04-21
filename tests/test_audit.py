@@ -93,6 +93,8 @@ def test_audit_report_summarizes_dataset_metrics(tmp_path: Path) -> None:
     assert report.dataset.merchant_clear_count == 2
     assert report.dataset.category_only_count == 1
     assert report.dataset.promotions_by_bank_category["Sudameris"]["combustible"] == 1
+    assert report.dataset.canonical_offers_total >= 1
+    assert report.dataset.featured_candidate_count >= 1
     assert "combustible" in report.dataset.covered_categories
     assert report.dataset.promo_type_distribution["bank_promo"] == 1
     assert report.dataset.promo_type_distribution["generic_benefit"] == 1
@@ -338,6 +340,7 @@ def test_render_audit_report_includes_sections_and_matches(tmp_path: Path) -> No
     assert "== Dataset ==" in rendered
     assert "== Smoke queries ==" in rendered
     assert "== Coverage by category ==" in rendered
+    assert "== Canonical offers ==" in rendered
     assert "Copetrol" in rendered
     assert "price_base=10000.0" in rendered
 

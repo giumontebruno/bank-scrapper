@@ -7,6 +7,7 @@ from catalog.service import CatalogService
 from catalog.normalization import assess_merchant_candidate
 from models.audit import AuditIssue, AuditReport, BankHealth, DatasetAudit, FuelHealth, QueryAuditResult
 from models.promotion import FuelPrice, Promotion, QueryMatch
+from offers import build_offer_catalog, load_supplemental_offer_sources
 from query.engine import QueryEngine
 from query.ranking import infer_promo_type, result_quality
 from query.repository import PromotionRepository
@@ -82,6 +83,7 @@ def summarize_dataset(
     merchant_clear_count = 0
     category_only_count = 0
     bank_buckets: dict[str, list[Promotion]] = defaultdict(list)
+    offers = build_offer_catalog(promotions, supplemental_sources=load_supplemental_offer_sources())
 
     for promotion in promotions:
         bank_buckets[promotion.bank].append(promotion)
@@ -142,6 +144,11 @@ def summarize_dataset(
         merchant_clear_count=merchant_clear_count,
         category_only_count=category_only_count,
         average_quality_score=average_quality_score,
+        canonical_offers_total=len(offers),
+        duplicated_promotions_consolidated=max(0, len(promotions) - len(offers)),
+        featured_candidate_count=sum(1 for offer in offers if offer.is_featured_candidate),
+        generic_offer_count=sum(1 for offer in offers if offer.is_generic),
+        canonical_category_only_count=sum(1 for offer in offers if offer.is_category_only),
         suspicious_merchants=dict(suspicious_merchants.most_common(10)),
         banks=bank_health,
         fuel=fuel_health,
@@ -333,6 +340,13 @@ def render_audit_report(report: AuditReport) -> str:
     lines.append(f"- generic_or_missing: {dataset.merchant_generic_or_missing_count}")
     lines.append(f"- suspicious_clear: {dataset.suspicious_merchant_count}")
     lines.append(f"- category_only: {dataset.category_only_count}")
+    lines.append("")
+    lines.append("== Canonical offers ==")
+    lines.append(f"- canonical_offers_total: {dataset.canonical_offers_total}")
+    lines.append(f"- duplicated_promotions_consolidated: {dataset.duplicated_promotions_consolidated}")
+    lines.append(f"- featured_candidates: {dataset.featured_candidate_count}")
+    lines.append(f"- generic_offers: {dataset.generic_offer_count}")
+    lines.append(f"- category_only_offers: {dataset.canonical_category_only_count}")
     lines.append("")
     lines.append("== Promo types ==")
     for key, value in dataset.promo_type_distribution.items():
