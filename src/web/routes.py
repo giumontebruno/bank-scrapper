@@ -24,6 +24,7 @@ from web.view_models import (
     apply_promotion_filters,
     build_empty_state,
     fuel_recommendations,
+    latest_update_label,
     normalize_recent_queries,
     now_month_ref,
     paginate,
@@ -53,6 +54,7 @@ def register_web_routes(
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request) -> HTMLResponse:
+        repository = get_repository()
         recent_queries = normalize_recent_queries(request.cookies.get(RECENT_SEARCH_COOKIE))
         return templates.TemplateResponse(
             request,
@@ -63,6 +65,7 @@ def register_web_routes(
                 "example_queries": EXAMPLE_QUERIES,
                 "recent_queries": recent_queries,
                 "default_month": now_month_ref(),
+                "last_updated": latest_update_label(repository.list_fuel_prices()),
             },
         )
 
@@ -106,6 +109,7 @@ def register_web_routes(
                 "example_queries": EXAMPLE_QUERIES,
                 "recent_queries": recent_queries,
                 "empty_state": empty_state,
+                "last_updated": latest_update_label(repository.list_fuel_prices()),
             },
         )
         if q.strip():
@@ -203,6 +207,7 @@ def register_web_routes(
                 "brands": brands,
                 "recommendations": recs,
                 "error_message": error_message,
+                "last_updated": latest_update_label(repository.list_fuel_prices(month_ref=safe_month)),
             },
         )
 

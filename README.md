@@ -406,6 +406,33 @@ Para verificar la ultima ejecucion desde la web:
 - revisar `status`, `finished_at`, `last_result`, `warnings` y `bank_diagnostics`
 - si hace falta, abrir `/audit-ui` para mirar cobertura y warnings actuales
 
+### Rotar token admin
+
+Antes del uso continuo, generá un token nuevo y privado. No reutilices tokens pegados en chats, capturas o pruebas.
+
+Dónde configurarlo:
+
+- Render: variable `ADMIN_TOKEN`
+- GitHub Actions: secret `ADMIN_TOKEN`
+- GitHub Actions: secret `PROMO_QUERY_BASE_URL` con la URL publica de la app
+
+Cómo probarlo:
+
+```bash
+curl https://TU-APP.onrender.com/admin/collect/status -H "X-Admin-Token: NUEVO_TOKEN"
+```
+
+Debe responder JSON con `status`. Sin token o con token incorrecto debe responder `403`.
+
+### Activar workflow manual por primera vez
+
+1. Confirmar en Render: `APP_ENV=production`, `DATABASE_URL`, `ENABLE_ADMIN_ENDPOINTS=true`, `ADMIN_TOKEN`.
+2. Confirmar en GitHub Secrets: `PROMO_QUERY_BASE_URL`, `ADMIN_TOKEN`.
+3. Ir a GitHub Actions > `Daily collect and audit`.
+4. Ejecutar `Run workflow`; podés dejar `month` vacio para usar el mes actual.
+5. Verificar que el job termine verde.
+6. Entrar a `/ops` y revisar `last_result`, `finished_at` y `bank_diagnostics`.
+
 ## Mejoras recientes de UI y resultados
 
 La web mantiene FastAPI + Jinja, pero ahora tiene una capa visual mas pulida:
@@ -423,6 +450,15 @@ Tambien se reforzo el catalogo para categorias debiles:
 - ferreteria: repuestos, talleres, electricidad, cemento, materiales
 
 El ranking sigue priorizando promos bancarias claras por encima de beneficios genericos, vouchers y fallback de catalogo.
+
+## Checklist final corto
+
+1. Hacer commit y push final.
+2. Rotar `ADMIN_TOKEN` en Render.
+3. Cargar el mismo `ADMIN_TOKEN` en GitHub Secrets.
+4. Cargar `PROMO_QUERY_BASE_URL` en GitHub Secrets.
+5. Ejecutar una vez el workflow manual.
+6. Abrir `/ops` y confirmar `status=done`, `warnings` y `bank_diagnostics`.
 
 ## Tests
 

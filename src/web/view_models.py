@@ -193,3 +193,10 @@ def timed_call(fn: Any, *args: Any, **kwargs: Any) -> tuple[Any, float]:
     start = perf_counter()
     result = fn(*args, **kwargs)
     return result, round(perf_counter() - start, 2)
+
+
+def latest_update_label(fuel_prices: list[Any]) -> str:
+    captured = sorted((getattr(item, "captured_at", "") for item in fuel_prices if getattr(item, "captured_at", "")), reverse=True)
+    if not captured:
+        return "Sin actualizacion registrada"
+    return captured[0].replace("T", " ")[:19]

@@ -18,14 +18,17 @@ jobs:
       - name: Resolve month
         id: vars
         run: |
+          echo "Resolving collect month..."
           if [ -n "${{ inputs.month }}" ]; then
             echo "month=${{ inputs.month }}" >> "$GITHUB_OUTPUT"
           else
             echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
           fi
+          echo "Month resolved."
 
       - name: Start collect
         run: |
+          echo "Starting collect for ${{ steps.vars.outputs.month }}..."
           curl --fail --show-error --silent \
             -X POST "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/collect" \
             -H "Content-Type: application/json" \
@@ -35,15 +38,18 @@ jobs:
       - name: Wait for collect completion
         run: |
           for attempt in $(seq 1 90); do
+            echo "Polling collect status, attempt $attempt/90..."
             payload=$(curl --fail --show-error --silent \
               "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/collect/status" \
               -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}")
             echo "$payload"
             status=$(python -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<< "$payload")
             if [ "$status" = "done" ]; then
+              echo "Collect finished successfully."
               exit 0
             fi
             if [ "$status" = "error" ]; then
+              echo "Collect finished with error."
               exit 1
             fi
             sleep 20
@@ -53,6 +59,7 @@ jobs:
 
       - name: Run audit
         run: |
+          echo "Running audit for ${{ steps.vars.outputs.month }}..."
           curl --fail --show-error --silent \
             -X POST "${{ secrets.PROMO_QUERY_BASE_URL }}/admin/audit" \
             -H "Content-Type: application/json" \

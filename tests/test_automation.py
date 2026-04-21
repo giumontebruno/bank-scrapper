@@ -17,3 +17,11 @@ def test_daily_collect_audit_workflow_uses_admin_token_secret() -> None:
     assert "/admin/collect" in rendered
     assert "/admin/collect/status" in rendered
     assert "/admin/audit" in rendered
+
+
+def test_gitignore_excludes_generated_runtime_artifacts() -> None:
+    gitignore = Path(".gitignore").read_text(encoding="utf-8")
+
+    assert "*.py[cod]" in gitignore
+    assert "data/processed/*.sqlite" in gitignore
+    assert ".env" in gitignore

@@ -5,6 +5,7 @@
     <div>
       <span class="eyebrow">Resultados</span>
       <h1>Buscá promos por necesidad real</h1>
+      <p class="freshness-pill">Ultima actualizacion: {{ last_updated }}</p>
       {% if recent_queries %}
         <div class="chip-grid top-chip-grid">
           {% for item in recent_queries %}

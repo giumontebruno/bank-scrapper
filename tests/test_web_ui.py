@@ -105,6 +105,7 @@ def test_web_home_renders_search_examples_and_recent_queries(monkeypatch, tmp_pa
     assert "Últimas búsquedas" in response.text
     assert "shortcut-card" in response.text
     assert "Tablero 95 / 97" in response.text
+    assert "Ultima actualizacion" in response.text
     assert 'name="viewport"' in response.text
 
 
@@ -117,6 +118,7 @@ def test_web_search_renders_results_and_sets_recent_cookie(monkeypatch, tmp_path
     assert "Copetrol" in response.text
     assert "Final estimado" in response.text
     assert "price-highlight" in response.text
+    assert "Ultima actualizacion" in response.text
     assert "set-cookie" in response.headers
 
 
@@ -148,6 +150,7 @@ def test_web_fuel_view_filters_by_octane(monkeypatch, tmp_path: Path) -> None:
     assert 'class="active">95<' in fuel.text
     assert "Precios agrupados por marca" in fuel.text
     assert "fuel-highlight" in fuel.text
+    assert "Ultima actualizacion" in fuel.text
 
 
 def test_web_promotions_view_supports_filters_and_pagination(monkeypatch, tmp_path: Path) -> None:
@@ -405,3 +408,4 @@ def test_web_styles_include_mobile_breakpoints() -> None:
     assert "@media (max-width: 640px)" in css
     assert ".app-shortcuts" in css
     assert ".price-highlight" in css
+    assert ".freshness-pill" in css
